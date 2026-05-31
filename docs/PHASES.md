@@ -282,7 +282,7 @@ for any reason, same procedure but trigger is different.
 | Phase | Status | Started | Acceptance green |
 |---|---|---|---|
 | 0 Foundation | DONE | 2026-05-30 | 2026-05-31 |
-| 1 Engine | NOT STARTED | — | — |
+| 1 Engine | DONE | 2026-05-31 | 2026-06-01 (A1.1, A1.2, A1.3, A1.5, A1.6 green; A1.4 deferred to Phase 2/3 — needs Steam-installed bottle) |
 | 2 App shell | NOT STARTED | — | — |
 | 3 Game | NOT STARTED | — | — |
 | 4 Packaging | NOT STARTED | — | — |
