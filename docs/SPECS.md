@@ -40,8 +40,14 @@ All completed as of commit `5714053`.
 
 ## Phase 1 acceptance criteria (engine)
 
+> Host arch: x86_64 (runs under Rosetta 2 on Apple Silicon — see
+> [ADR-0010](ADR/0010-host-arch-x86_64-rosetta.md)). Rosetta 2 must
+> be installed on the test machine; `softwareupdate --install-rosetta
+> --agree-to-license` if absent.
+
 A1.1 The built `wine` binary in `out/engine/bin/wine` reports version
-`wine-11.0` when invoked with `--version`. Exit code 0.
+`wine-11.0` when invoked with `--version`. Exit code 0. The binary is
+x86_64 Mach-O (verified with `file`).
 
 A1.2 `out/engine/bin/wine wineboot --init` against a clean WINEPREFIX
 exits 0. The resulting `system.reg` includes a `wineVersion.major = 11`
@@ -96,9 +102,9 @@ Each script:
 │   └── ...
 └── out/engine/           # what eventually becomes Calimocho.app bundled content
     ├── bin/
-    │   ├── wine
+    │   ├── wine                          (x86_64 Mach-O)
     │   ├── wine64 -> wine
-    │   ├── wineserver
+    │   ├── wineserver                    (x86_64 Mach-O)
     │   ├── wineserver64 -> wineserver
     │   └── wineboot -> wine
     ├── lib/
@@ -112,6 +118,9 @@ Each script:
     │       └── libd3dshared.dylib
     └── share/wine/
 ```
+
+All host-side binaries are x86_64 (no `aarch64-unix/`). See
+[ADR-0010](ADR/0010-host-arch-x86_64-rosetta.md) for why.
 
 There is no install target in Phase 1. The engine lives in `out/engine/`
 and is invoked directly. We do not touch Whisky's Libraries folder. We
