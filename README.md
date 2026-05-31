@@ -179,6 +179,31 @@ v1.0 will ship a DMG:
 **Status**: not shipped yet. Track progress in
 [docs/PHASES.md](docs/PHASES.md) and [docs/build-log.md](docs/build-log.md).
 
+## Build the engine from source (Phase 1, available today)
+
+Phase 1 ships the bare engine — Wine 11 + GPTK D3DMetal, no SwiftUI app
+yet. You invoke `out/engine/bin/wine` directly from a terminal.
+
+Prerequisites: Apple Silicon Mac, macOS 15 or later, Xcode Command Line
+Tools, native arm64 Homebrew at `/opt/homebrew/`. The build is x86_64
+under Rosetta 2 — see [ADR-0010](docs/ADR/0010-host-arch-x86_64-rosetta.md).
+
+```bash
+git clone https://github.com/dragoshont/calimocho.git
+cd calimocho
+scripts/prep-build-deps.sh        # Rosetta 2 + x86_64 Homebrew + Wine deps
+scripts/fetch-sources.sh          # CodeWeavers Wine 11 tarball (sha256 pinned)
+scripts/patch-sources.sh          # apply calimocho patches (see patches/wine/)
+scripts/build-wine.sh             # configure + make + install (~20 min)
+scripts/overlay-gptk.sh           # copy Apple GPTK D3DMetal into out/engine/
+scripts/sign-engine.sh            # ad-hoc sign every Mach-O with Wine entitlements
+scripts/test-engine.sh            # verify A1.1, A1.2, A1.3, A1.5
+out/engine/bin/wine notepad.exe   # try it
+```
+
+Build artifacts live under `out/engine/` (gitignored). All A1.x acceptance
+criteria are documented in [docs/SPECS.md](docs/SPECS.md).
+
 ## Roadmap
 
 Six phases, fully described in [docs/PHASES.md](docs/PHASES.md):
