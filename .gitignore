@@ -1,0 +1,27 @@
+# Dirs
+build/
+sources/
+*.tar.gz
+*.tar.xz
+*.dmg
+*.pkg
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Logs
+*.log
+/tmp_*
+
+# Output artifacts
+out/
+dist/
+Libraries.bak-*

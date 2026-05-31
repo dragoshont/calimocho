@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# calimocho — placeholder entry point.
+# This will become the install/build orchestrator once the build recipe is locked in.
+# For now: just helpful info.
+set -e
+cat <<EOF
+calimocho — work in progress
+
+The build script is not yet ready. The current state:
+
+  - Repo created: $(date +%Y-%m-%d)
+  - CrossOver 26.1.0 source: downloaded to ~/Downloads/cxwine-build/
+  - Wine 11.9 staging swap into Whisky: validated, Steam runs but UI renders black
+  - Build from CodeWeavers source: pending
+
+Track progress in docs/build-log.md
+EOF

@@ -1,0 +1,22 @@
+# LGPL fetched verbatim from https://www.gnu.org/licenses/lgpl-2.1.txt
+# Stored at: ./LICENSE
+# (Auto-fetched at repo creation. Do not edit — replace with upstream copy if it changes.)
+
+See https://www.gnu.org/licenses/lgpl-2.1.html for the canonical text.
+
+This project (calimocho — install scripts, build glue, documentation) is licensed under the
+GNU Lesser General Public License version 2.1 or later, the same terms as Wine itself.
+
+Bundled / built dependencies retain their own licenses:
+
+  - Wine (LGPL 2.1+ — https://www.winehq.org)
+  - Wine patches by CodeWeavers, Inc. (LGPL 2.1+ — published under their LGPL compliance
+    at https://media.codeweavers.com/pub/crossover/source/)
+  - vkd3d (LGPL 2.1+)
+  - DXVK (zlib license)
+  - MoltenVK (Apache 2.0)
+  - Game Porting Toolkit D3DMetal libraries (Apple — proprietary, freely redistributable
+    binary form per Apple's Game Porting Toolkit license)
+
+A full LGPL 2.1 text will be fetched and stored here by the install script when the build
+runs, alongside copies of each upstream dependency's license file.
