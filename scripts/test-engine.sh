@@ -29,12 +29,11 @@ skip() { say "SKIP $*"; }
 
 FAILED=0
 
-# Always start from a clean process slate — leftover wineservers from a
-# previous run cause spurious "instant" wineboot exits without a real
-# init (the existing server "handles" the request and returns).
-pkill -9 -f wineserver 2>/dev/null || true
-pkill -9 -f "$OUT/bin/wine" 2>/dev/null || true
-sleep 1
+# We do NOT pkill -f wineserver here. That would SIGKILL any other
+# calimocho engine running for the user (e.g. Phase 2+ Calimocho.app).
+# Instead, we use a per-test WINEPREFIX (set below); each prefix gets
+# its own wineserver, and cleanup() below shuts down only ours by
+# pointing wineserver -k at our WINEPREFIX.
 
 [[ -x "$WINE" ]] || { say "engine missing at $WINE — run build-wine.sh first"; exit 3; }
 
@@ -48,8 +47,11 @@ if [[ "$ver" == wine-11.0* ]]; then ok A1.1; else fail "A1.1 (got: $ver)"; fi
 say "A1.2 wineboot --init on clean prefix"
 PFX="$(mktemp -d -t calimocho-pfx.XXXXXX)"
 cleanup() {
-  pkill -9 -f wineserver 2>/dev/null || true
-  pkill -9 -f "$OUT/bin/wine" 2>/dev/null || true
+  # Only shut down OUR wineserver — the one bound to OUR WINEPREFIX.
+  # `wineserver -k` is the polite way: signals every wine process that
+  # shares this prefix and waits for them to exit. -w would wait
+  # indefinitely; -k is the kill-then-wait variant.
+  WINEPREFIX="$PFX" "$OUT/bin/wineserver" -k 2>/dev/null || true
   rm -rf "$PFX"
 }
 trap cleanup EXIT
