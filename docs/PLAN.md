@@ -376,6 +376,28 @@ calimocho/
 calimocho exists in a small, friendly ecosystem of macOS Wine projects. Being a
 good neighbor matters more than market share. Specifically:
 
+### License landscape (verified from actual EULAs, 2026-05-31)
+
+| Component | License | Distribution permitted? |
+|---|---|---|
+| **Wine 11.0 (upstream)** | LGPL 2.1+ | ✅ Yes, any use including modification |
+| **CodeWeavers Wine patches** | LGPL 2.1+ (CW's LGPL compliance source) | ✅ Yes, any use including modification |
+| **vkd3d / DXVK / MoltenVK** | LGPL / zlib / Apache 2.0 | ✅ Yes |
+| **Apple GPTK 3.0 D3DMetal.framework** | Apple GPTK Software License Agreement | ✅ **Non-commercial distribution allowed** per §2A(iii) + §2C |
+| **Apple GPTK /redist components** | Same | ✅ Same — individual Redistributables can be distributed |
+| **gcenx repacks** | Pass-through (no extra license added) | ✅ They're exercising the underlying upstream rights |
+
+**Key takeaway for calimocho**: All components we want to ship are **legally
+redistributable for non-commercial use**. The single hard constraint is
+the **non-commercial** clause on Apple's GPTK — it forecloses any commercial
+product (paid SaaS, paid app, paid support contract) but does NOT prevent
+free open-source distribution, GitHub Sponsors funding, or community use.
+
+**Why CrossOver can charge $74/yr and we can't**: CodeWeavers has a private
+commercial agreement with Apple (they're a named partner on Apple's GPTK
+page). The public GPTK license is non-commercial only; CodeWeavers operates
+under a separate paper.
+
 ### Who's already in this space
 
 | Project | Maintainer | Scope | Status |
@@ -418,11 +440,12 @@ calimocho **does** bundle them, on the principle that:
    buy CrossOver if you can afford it" callout (already done).
 3. **Never advertise as "free CrossOver alternative".** Frame as "Whisky's
    missing engine update." That's a much smaller, more honest niche.
-4. **Never bundle the GPTK D3DMetal binaries in our own GitHub releases.**
-   Download them at install time from gcenx's release URLs. This way:
-   - We don't redistribute Apple's binary (avoids any future EULA changes)
-   - gcenx remains the canonical source for GPTK on macOS
-   - Our release tarball stays small (just CW Wine + glue)
+4. **Bundle GPTK D3DMetal in our release tarballs** with Apple's License.rtf
+   alongside. Apple's GPTK 3.0 license (§2A iii + §2C) explicitly permits
+   non-commercial redistribution of the Framework and Redistributables. We're
+   non-commercial → we're allowed. (Earlier drafts of this plan said to download
+   from gcenx at install time "to be safe" — that was over-cautious. Direct
+   bundling is simpler and more reliable.)
 5. **Never PR "please add calimocho as engine option" to Heroic.** They
    delegated the engine to gcenx; injecting ourselves between them would
    create awkward dynamics. If Heroic users want calimocho, they can

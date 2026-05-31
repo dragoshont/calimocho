@@ -1,22 +1,87 @@
-# LGPL fetched verbatim from https://www.gnu.org/licenses/lgpl-2.1.txt
-# Stored at: ./LICENSE
-# (Auto-fetched at repo creation. Do not edit — replace with upstream copy if it changes.)
+# calimocho — License Summary
+
+> **TL;DR**: calimocho is free for personal and other non-commercial use.
+> You may NOT sell it, charge for support around it, or include it in a
+> paid product. This is because Apple's Game Porting Toolkit license
+> (which governs the bundled `D3DMetal.framework`) restricts distribution
+> to non-commercial purposes.
+
+## Calimocho's own scripts and docs
+
+The shell scripts, install logic, build automation, and documentation in this
+repository are licensed under the **GNU Lesser General Public License
+version 2.1 or later** (LGPL-2.1-or-later) — the same license as Wine itself.
 
 See https://www.gnu.org/licenses/lgpl-2.1.html for the canonical text.
 
-This project (calimocho — install scripts, build glue, documentation) is licensed under the
-GNU Lesser General Public License version 2.1 or later, the same terms as Wine itself.
+## Bundled dependencies
 
-Bundled / built dependencies retain their own licenses:
+| Component | Source | License |
+|---|---|---|
+| **Wine 11.0** | https://www.winehq.org | LGPL-2.1-or-later |
+| **CodeWeavers Wine patches** | https://media.codeweavers.com/pub/crossover/source/ | LGPL-2.1-or-later |
+| **vkd3d** | https://gitlab.winehq.org/wine/vkd3d | LGPL-2.1-or-later |
+| **DXVK** *(v0.6+)* | https://github.com/doitsujin/dxvk | zlib license |
+| **MoltenVK** | https://github.com/KhronosGroup/MoltenVK | Apache 2.0 |
+| **Apple D3DMetal.framework** | Apple Game Porting Toolkit 3 | **Apple GPTK SLA** ⚠️ |
+| **Apple /redist components** | Same | **Apple GPTK SLA** ⚠️ |
+| **xxHash** *(inside D3DMetal)* | https://github.com/Cyan4973/xxHash | BSD-2-Clause |
 
-  - Wine (LGPL 2.1+ — https://www.winehq.org)
-  - Wine patches by CodeWeavers, Inc. (LGPL 2.1+ — published under their LGPL compliance
-    at https://media.codeweavers.com/pub/crossover/source/)
-  - vkd3d (LGPL 2.1+)
-  - DXVK (zlib license)
-  - MoltenVK (Apache 2.0)
-  - Game Porting Toolkit D3DMetal libraries (Apple — proprietary, freely redistributable
-    binary form per Apple's Game Porting Toolkit license)
+Full Apple GPTK License Agreement is reproduced verbatim in
+`THIRDPARTY/Apple-GPTK/LICENSE.rtf` at build time.
 
-A full LGPL 2.1 text will be fetched and stored here by the install script when the build
-runs, alongside copies of each upstream dependency's license file.
+## ⚠️ The non-commercial restriction (Apple GPTK SLA §2A iii + §2C)
+
+Apple grants a non-commercial, non-exclusive, non-transferable license to
+install, use, and distribute D3DMetal and Redistributables.
+The Framework may be distributed *separately* from the rest of GPTK.
+This is what makes calimocho legal.
+
+The license is **strictly non-commercial**.
+
+You may NOT:
+- ❌ Sell calimocho or any product/service incorporating it
+- ❌ Charge for technical support around calimocho
+- ❌ Bundle it in a paid app, subscription, or hosted service
+- ❌ Use it in a service-bureau, time-sharing, or paid hosted-gaming offering
+- ❌ Modify, decompile, or reverse-engineer the D3DMetal binary
+
+You MAY:
+- ✅ Use it personally for free on your own Mac
+- ✅ Share with family, friends, colleagues at no charge
+- ✅ Redistribute through forks, mirrors, free package managers
+- ✅ Accept donations (GitHub Sponsors / Patreon) to maintain the project
+- ✅ Use it in classroom / research / educational contexts
+
+## Why CrossOver can charge for the same components
+
+CodeWeavers has a separate commercial agreement with Apple (they're named on
+Apple's GPTK page as a recommended commercial solution). That contract is
+private; we can't replicate it.
+
+If you can afford [CrossOver](https://www.codeweavers.com/crossover) ($74/yr),
+buying it is the right way to fund the people whose work makes calimocho
+possible.
+
+## Trademarks
+
+- "CrossOver", "CodeWeavers" — trademarks of CodeWeavers, Inc.
+- "Apple", "macOS", "Game Porting Toolkit", "D3DMetal" — trademarks of Apple Inc.
+- "Wine" — trademark of the Wine project.
+- "Steam" — trademark of Valve Corporation.
+
+Nominative fair use. No affiliation, endorsement, or sponsorship implied.
+
+## Compliance
+
+- **User**: read the README, install for personal use, enjoy.
+- **Fork maintainer**: keep this LICENSE + THIRDPARTY/ intact; don't strip
+  the non-commercial notice from any release containing D3DMetal.
+- **Want to commercialize?** Don't include D3DMetal. Build a calimocho variant
+  with only upstream-LGPL components (Wine + vkd3d-proton + DXVK + MoltenVK).
+  DX12 perf will be lower, but the license becomes fully permissive.
+
+## Disclaimer
+
+We are not lawyers; nothing here is legal advice. For binding interpretation,
+read Apple's full GPTK SLA and consult a qualified attorney.

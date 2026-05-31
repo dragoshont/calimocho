@@ -7,8 +7,18 @@
 > for the (archived) [Whisky](https://github.com/Whisky-App/Whisky) runtime.
 
 [![License: LGPL 2.1+](https://img.shields.io/badge/License-LGPL_2.1+-blue.svg)](LICENSE)
+[![Use: Non-commercial only](https://img.shields.io/badge/Use-Non--commercial%20only-orange.svg)](LICENSE)
 ![Platform: macOS arm64](https://img.shields.io/badge/Platform-macOS%20arm64-lightgrey)
 ![Status: experimental](https://img.shields.io/badge/Status-experimental-orange)
+
+> ⚠️ **Non-commercial use only.** calimocho bundles Apple's Game Porting Toolkit
+> `D3DMetal.framework`, whose license (Apple GPTK SLA §2A iii + §2C) explicitly
+> allows redistribution but only for **non-commercial purposes**. Personal use,
+> family use, free distribution, donations OK. Selling it, charging support for
+> it, or including it in any paid product is **not** OK. CodeWeavers' CrossOver
+> ($74/yr) has a separate commercial agreement with Apple for the same components
+> — please [buy it](https://www.codeweavers.com/crossover) if you want a
+> commercially-licensed and supported product.
 
 ## Why?
 
