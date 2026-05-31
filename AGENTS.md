@@ -43,6 +43,16 @@ puts us in EULA grey area.
   (FOSS convention), but we point them at WineHQ and CrossOver instead
 - ✅ Free for any non-commercial use including community redistribution
 
+**Permitted uses (positive list, for unambiguous user guidance)**:
+personal use, family use, free community redistribution, donating to
+upstream projects on calimocho's behalf, education, research,
+hobbyist tinkering.
+
+**Prohibited uses (the line not to cross)**: selling the binaries,
+charging for support, including calimocho in any paid product or
+service (cloud gaming, hosted bottles, managed-gaming-as-a-service),
+sublicensing for commercial use.
+
 **Why this rule exists**: Apple's GPTK license requires non-commercial.
 Going commercial would also actively undercut CodeWeavers and break the
 positioning everything else is built on.
@@ -134,6 +144,11 @@ CrossOver alternative". Frame as "Whisky's missing engine update" or
 "a recipe for the one game I miss on my Mac". That smaller, more
 honest niche is the only one we serve.
 
+**We follow, we don't lead.** We ship nothing CrossOver hasn't shipped
+first. If a Wine patch lands upstream but isn't yet in a CrossOver
+release, we wait. This is part of the intentional release lag (lever
+5) and part of being honestly downstream.
+
 ### 5. We are SN2-scoped.
 - Subnautica 2 is the only "Working" entry in the compat table.
 - Other games may appear as "Wishlist" if the maintainer personally wants
@@ -153,6 +168,20 @@ honest niche is the only one we serve.
 - Growth is purely organic, by word of mouth or chance
 - If someone writes about us externally, we respond politely but do not
   amplify
+- **No SEO play.** Do not optimize for queries CrossOver competes for
+  ("free CrossOver", "play Windows games Mac", "DX12 Mac"). The README
+  is a destination for people who already know what they're looking
+  for, not a funnel.
+- **No posting in r/macgaming, r/wine_gaming, or any forum CrossOver
+  staff frequent.** If a user posts about calimocho there, we don't
+  participate in the thread.
+- **Bug routing** — only calimocho-specific bugs come to this repo.
+  - Wine engine bugs → [winehq.org](https://www.winehq.org/) bugzilla
+  - GPTK / D3DMetal bugs → Apple Feedback Assistant
+  - Game bugs (SN2 crashes, mod issues) → the game publisher
+  - Steam client bugs → Valve
+  - macOS bugs → Apple
+  The README and the issue template enforce this routing.
 
 ### 7. We test before we ship.
 - Phase acceptance criteria (`A0.x` through `A5.x`) live in
@@ -209,6 +238,24 @@ them):
   ```
   GUI dialogs additionally include a "Try CrossOver" button on any
   error that recommends fallback (rule #4, lever 7).
+
+**UX scope ceiling** (the GUI is deliberately tiny):
+
+- One user-visible menubar action: "Open Steam for Windows".
+- A first-run wizard that installs Steam (five steps; see
+  [docs/ux/APP-DESIGN.md](docs/ux/APP-DESIGN.md)).
+- Power-user actions (view logs, reset bottle, diagnose, reinstall
+  engine) are hidden behind **Option-click** on the menubar item.
+- **Never add**: a bottle picker, a Winetricks UI, a DLL override
+  panel, a per-game launcher, a download manager, a settings
+  inspector, a Wine version switcher. Users who need any of those
+  should use CrossOver instead, and the menu's About box says so.
+
+**Trademarks** — nominative fair use only. "CrossOver",
+"CodeWeavers", "Apple", "macOS", "Apple Silicon", "Game Porting
+Toolkit", "D3DMetal", "Wine", "Steam", "Subnautica" are referenced
+for identification only. calimocho is not affiliated with, endorsed
+by, or sponsored by any of these holders.
 
 ---
 

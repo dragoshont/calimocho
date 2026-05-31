@@ -5,10 +5,11 @@
 
 ## What we are
 
-calimocho is a free, open-source, non-commercial Wine runtime distribution for
-Apple Silicon Macs. It exists to fill exactly one gap: users who need a working
-Wine engine for the (now-archived) Whisky GUI but cannot or will not pay for
-CrossOver.
+calimocho is a free, open-source, non-commercial Wine runtime
+distribution for Apple Silicon Macs, packaged as a tiny SwiftUI
+menubar app (`Calimocho.app`). It exists to fill exactly one gap:
+users who want to play Subnautica 2 on a Mac, cannot or will not pay
+for CrossOver, and accept that this might not work for them.
 
 ## What we are not
 
