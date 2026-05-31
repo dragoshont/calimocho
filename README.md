@@ -1,199 +1,205 @@
 # calimocho
 
-> **Fortified Wine for Apple Silicon Macs.**
-> A free, open-source build of [CodeWeavers'](https://www.codeweavers.com/crossover) patched Wine 11 +
-> [Apple's Game Porting Toolkit](https://developer.apple.com/games/game-porting-toolkit/) D3DMetal +
-> [MoltenVK](https://github.com/KhronosGroup/MoltenVK), packaged as a drop-in replacement
-> for the (archived) [Whisky](https://github.com/Whisky-App/Whisky) runtime.
+> A personal recipe for running the Windows games I miss on my Mac.
+>
+> Currently: **Subnautica 2**. That is the whole list.
+>
+> Built on Wine 11 patches from
+> [CodeWeavers](https://www.codeweavers.com/crossover), the Game Porting
+> Toolkit D3DMetal from [Apple](https://developer.apple.com/games/game-porting-toolkit/),
+> and the macOS Wine packaging work of [gcenx](https://github.com/Gcenx).
+> Dropped into the [Whisky](https://github.com/Whisky-App/Whisky) GUI so the
+> bottle manager still works.
 
 [![License: LGPL 2.1+](https://img.shields.io/badge/License-LGPL_2.1+-blue.svg)](LICENSE)
 [![Use: Non-commercial only](https://img.shields.io/badge/Use-Non--commercial%20only-orange.svg)](LICENSE)
 ![Platform: macOS arm64](https://img.shields.io/badge/Platform-macOS%20arm64-lightgrey)
 ![Status: experimental](https://img.shields.io/badge/Status-experimental-orange)
 
-> ⚠️ **Non-commercial use only.** calimocho bundles Apple's Game Porting Toolkit
-> `D3DMetal.framework`, whose license (Apple GPTK SLA §2A iii + §2C) explicitly
-> allows redistribution but only for **non-commercial purposes**. Personal use,
-> family use, free distribution, donations OK. Selling it, charging support for
-> it, or including it in any paid product is **not** OK. CodeWeavers' CrossOver
-> ($74/yr) has a separate commercial agreement with Apple for the same components
-> — please [buy it](https://www.codeweavers.com/crossover) if you want a
-> commercially-licensed and supported product.
+> ⚠️ **Non-commercial use only.** calimocho bundles Apple's Game Porting
+> Toolkit `D3DMetal.framework`, whose license (Apple GPTK SLA §2A iii and §2C)
+> explicitly allows redistribution but only for non-commercial purposes.
+> Personal use, family use, free distribution, donations are all fine.
+> Selling it, charging support for it, or including it in any paid product
+> is not. If you want a commercially licensed and supported product,
+> please [buy CrossOver from CodeWeavers](https://www.codeweavers.com/crossover).
+> Their separate commercial agreement with Apple covers what this license
+> does not.
 
-## Should you use calimocho or buy CrossOver?
+---
 
-**Short answer: if you can afford it, buy CrossOver.** Their $74/yr funds the
-Wine engine patches our entire project depends on. Without CodeWeavers,
-none of this exists.
+## Should you use this?
 
-Honest decision table:
+**Short answer**: probably not, unless your situation is very specific.
 
-| If you... | Use |
+| If you... | Answer |
 |---|---|
-| Want today's working build, polish, support, anti-cheat compatibility, per-game profiles | 💳 **[CrossOver](https://www.codeweavers.com/crossover) ($74/yr)** — strongly recommended |
-| Rely on Wine games for your livelihood | 💳 **CrossOver** — the support is worth it |
-| Run a business / paid service that needs Wine | 💳 **CrossOver** — the license actually requires it (calimocho is non-commercial only) |
-| Play 5+ Windows games regularly | 💳 **CrossOver** — will save you days of debugging across your library |
-| Need an anti-cheat-protected multiplayer game (Valorant, Fortnite, etc.) | 💳 **CrossOver** — and even then, not all anti-cheat works |
-| Are a student / hobbyist / non-profit with one or two specific DX12 games | ✅ **calimocho** — you're our target audience |
-| Are a family genuinely unable to spend $74/yr on a game-runtime | ✅ **calimocho** — enjoy, no judgement |
-| Want to learn how this stack works | ✅ **calimocho** — the build script is the tutorial |
-| Want anything beyond "works on my Mac" with no SLA | 💳 **CrossOver** — we don't do support, ever |
+| Want to play Subnautica 2 on your Mac, you cannot afford CrossOver, and you accept that this might not work for you | Try calimocho |
+| Anything else | [Buy CrossOver](https://www.codeweavers.com/crossover) |
 
-### What you get with CrossOver that calimocho does NOT (and never will) have
+CrossOver costs $74 per year. It is the polished, supported, commercially
+licensed version of what we are hacking together here. If you can afford
+it, please buy it. CodeWeavers funds the Wine engine patches that this
+whole project depends on. Without them, calimocho does not exist.
 
-- **Customer support** — email tickets, response in hours. We have none.
-- **Per-game CrossTie profiles** — curated for hundreds of games. We have zero.
-- **Anti-cheat workarounds** — CodeWeavers works with Riot/Epic/etc. We do not.
-- **Day-of patches** — a game breaks Monday, CrossOver may patch by Friday. calimocho patches on the next monthly release at best.
-- **Apple notarization** — zero Gatekeeper warnings. We're ad-hoc signed; you'll right-click → Open.
-- **Bottle templates** — "Install Battle.net" is one click. In calimocho you do it yourself.
-- **Native macOS integration polish** — dock badges, file associations, Spotlight. We're a CLI.
-- **Commercial license** — you can use it in a paid product. calimocho cannot.
-- **A clear conscience** — you're paying the people doing the actual hard work.
+## Why this exists
 
-If any of those matter to you, **buy CrossOver**. Truly.
+Unknown Worlds shipped native Mac builds for
+[Subnautica](https://store.steampowered.com/app/264710/Subnautica/) (2018) and
+[Subnautica: Below Zero](https://store.steampowered.com/app/848450/Subnautica_Below_Zero/)
+(2021). My family bought both. We played them together on our Mac.
 
-### Support the people whose work makes calimocho possible
+When [Subnautica 2](https://store.steampowered.com/app/2864380/Subnautica_2/)
+launched in Early Access on May 14, 2026, it was Windows only. So this
+project exists as a stopgap, until Unknown Worlds ships a native Mac
+build of SN2 too. When that happens, calimocho will be archived.
 
-Even if calimocho works perfectly for you, please consider:
+For the longer version of this story, see [docs/why-this-exists.md](docs/why-this-exists.md).
 
-- 💰 **[Buy CrossOver](https://www.codeweavers.com/crossover)** — funds CodeWeavers' Wine team directly
-- 🍷 **[Donate to Wine](https://www.winehq.org/donate)** — the upstream project everyone (including CrossOver) depends on
-- ⭐ **Star [gcenx's repos](https://github.com/Gcenx)** — the volunteer who maintains the macOS Wine packages we all use
-- ❤️ **Star [Whisky](https://github.com/Whisky-App/Whisky)** — even archived, it's the GUI calimocho rides on
+## What it does technically
 
-Don't donate to calimocho. Donate up the chain. We're the easy part.
+calimocho takes three open or freely redistributable things, builds them
+on your Mac, and installs the result into Whisky's `Libraries/` folder:
 
+1. **Wine 11.0 with CodeWeavers' patches** (LGPL source, fetched from
+   [CodeWeavers' public source mirror](https://media.codeweavers.com/pub/crossover/source/)
+   and rebuilt locally).
+2. **Apple Game Porting Toolkit 3 D3DMetal framework** (the DirectX 12 to
+   Metal translator, redistributable per Apple's GPTK license, repacked by
+   [gcenx](https://github.com/Gcenx/game-porting-toolkit)).
+3. **MoltenVK** (Vulkan to Metal, Apache 2.0, bundled with GPTK).
 
-## Why?
+After installation, the Whisky GUI works as before. The Wine engine
+underneath is just newer and patched.
 
-[Whisky](https://github.com/Whisky-App/Whisky) — the popular free Mac Wine GUI — was put into permanent
-maintenance mode in May 2025. It still ships **Wine 7.7** (April 2023), which can no longer run the
-current Steam client (the embedded Chromium "steamwebhelper" needs syscalls only Wine 9+ implements).
+## Standing on the shoulders of these giants
 
-The polished alternative is [CrossOver](https://www.codeweavers.com/crossover) by CodeWeavers
-(USD $74 / year). It ships Wine 11 with CodeWeavers' own patches plus Apple's GPTK D3DMetal,
-and it Just Works for modern DX12 games like Subnautica 2 — but it costs money some families can't justify.
+calimocho is 99% other people's work. The shell script that glues it
+together is the easy part. Everything below is the actual project.
 
-**calimocho** bridges the gap by **building CodeWeavers' published Wine source from scratch**
-(LGPL 2.1+ — they're legally required to publish it), combining it with the publicly-distributed
-GPTK D3DMetal libraries from [@gcenx](https://github.com/Gcenx)'s repacks, and dropping the result
-into Whisky's `Libraries/` folder so the existing Whisky GUI keeps working.
+### The Wine project
+[winehq.org](https://www.winehq.org)
+30 years of reverse engineering the Windows API by volunteers and
+CodeWeavers staff. Without them, none of this exists. Not calimocho, not
+CrossOver, not Whisky, not Heroic. **Please donate even a little to Wine
+directly**: [winehq.org/donate](https://www.winehq.org/donate).
 
-You get:
+### CodeWeavers
+[codeweavers.com](https://www.codeweavers.com/crossover)
+The company that funds most of the upstream Wine work that benefits
+macOS. Their CrossOver product ($74 per year) is the polished, supported,
+commercially licensed version of this stack. They publish all their Wine
+patches as LGPL source, which is the only reason calimocho is legal at
+all. **If you can afford CrossOver, please buy it**, even if calimocho
+works for you. They earn it.
 
-- Wine 11.0 with the **same macdrv / wined3d / vkd3d patches** CrossOver ships
-- **D3DMetal** for DX12 → Metal on Apple Silicon
-- **MoltenVK** for DX11/Vulkan → Metal
-- Whisky's bottle manager UI on top
-- One install script, idempotent, with `--rollback`
+### Apple Game Porting Toolkit team
+For shipping `D3DMetal.framework` as a redistributable component with
+explicit non-commercial permission in the GPTK license. This is the only
+practical way DirectX 12 games render on Apple Silicon outside of Apple's
+own first-party apps.
 
-## What this is *not*
+### gcenx
+[github.com/Gcenx](https://github.com/Gcenx)
+The single-person volunteer who maintains the macOS Wine packaging
+ecosystem. He repacks upstream Wine and the Apple GPTK into drop-in
+tarballs that Whisky, Heroic, Wineskin, Kegworks, and calimocho all
+depend on. **Star [his repos](https://github.com/Gcenx?tab=repositories).**
+The whole free macOS Wine world rests on his unpaid work.
 
-- **Not** affiliated with or endorsed by CodeWeavers, Apple, Valve, or the Wine project.
-- **Not** a redistribution of CrossOver's binaries. We build from their published LGPL source.
-- **Not** a support channel for game-specific issues — those go to upstream Wine / CrossOver /
-  game developer.
-- **Not** a replacement for CrossOver if you want polish, per-app profiles, official support,
-  or to support CodeWeavers' work. **Please consider buying CrossOver** if it works for you.
+### Isaac Marovitz and the Whisky community
+[github.com/Whisky-App/Whisky](https://github.com/Whisky-App/Whisky)
+For building Whisky. Even though the project was archived in May 2025, its
+SwiftUI GUI is still the interface calimocho uses. Star the repo.
 
-## Quick start
+### Unknown Worlds Entertainment
+For shipping Subnautica 1 and Subnautica: Below Zero natively on Mac. We
+are still here, hoping for the third.
+
+### KhronosGroup
+[github.com/KhronosGroup/MoltenVK](https://github.com/KhronosGroup/MoltenVK)
+For MoltenVK, the Vulkan-to-Metal translator that makes our DX11 path
+possible.
+
+---
+
+This list is the project. The 50 lines of shell we add are the easy part.
+Everything that actually makes your Mac play Windows games came from the
+people and projects above.
+
+## What this is NOT
+
+- **Not a CrossOver alternative.** CrossOver has support, per-game profiles,
+  anti-cheat workarounds, day-of patches, notarization, polish, a
+  commercial license, and a team of paid engineers. calimocho has none of
+  those. CrossOver wins on every one of these dimensions. If any of them
+  matter to you, **buy CrossOver**.
+- **Not a product.** It is a config recipe.
+- **Not a support channel.** Game bugs go to the game publisher. Wine bugs
+  go to [winehq.org](https://www.winehq.org). GPTK bugs go to Apple.
+  Only calimocho-specific bugs go here.
+- **Not promoted.** No HackerNews post, no Reddit thread, no blog. If you
+  found this, it was by chance or word of mouth.
+- **Not for sale, ever.** No Pro tier, no paid Discord, no support
+  contracts, no commercial sublicensing. The Apple GPTK non-commercial
+  clause means it cannot be sold, and we agree with that anyway.
+- **Not a long-term project.** The plan is to archive when Unknown Worlds
+  ships a native Mac build of Subnautica 2.
+
+## Where to send money or thanks
+
+Please do **not** donate to calimocho. Send it up the chain instead:
+
+- **Buy CrossOver**: [codeweavers.com/crossover](https://www.codeweavers.com/crossover)
+- **Donate to Wine**: [winehq.org/donate](https://www.winehq.org/donate)
+- **Star gcenx's repos**: [github.com/Gcenx](https://github.com/Gcenx?tab=repositories)
+- **Star Whisky**: [github.com/Whisky-App/Whisky](https://github.com/Whisky-App/Whisky)
+
+## Game compatibility
+
+See [docs/games-i-miss-on-my-mac.md](docs/games-i-miss-on-my-mac.md). It is
+a one-row table. That is the whole supported list.
+
+## Quick start (planned, not yet ready)
 
 ```bash
-# 1. Install Whisky (provides the GUI we're using as a host)
 brew install --cask whisky
-
-# 2. Run calimocho to build + install the engine
 git clone https://github.com/dragoshont/calimocho.git
 cd calimocho
-./bin/calimocho install            # builds + installs into Whisky's Libraries/
-
-# 3. Open Whisky, create a bottle as usual.
+./bin/calimocho install
 ```
 
-To revert to stock Whisky:
+Then open Whisky, create a bottle, install Steam, install SN2, play.
 
-```bash
-./bin/calimocho rollback           # restores the most recent Libraries.bak
-```
+**Status**: build script is not finished yet. Track progress in
+[docs/PLAN.md](docs/PLAN.md) and [docs/build-log.md](docs/build-log.md).
 
-## Build requirements
+## Roadmap
 
-- Apple Silicon Mac (`arm64`)
-- macOS 14+ (Sequoia 15+ recommended for AVX-via-Rosetta)
-- Xcode Command Line Tools (`xcode-select --install`)
-- Homebrew
-- ~3 GB free disk for the build, ~600 MB for the installed result
-- ~30-45 min on M1 / 15-20 min on M3 Max for a from-source build
+Short version:
 
-The install script handles all `brew` dependencies automatically (`mingw-w64`, `bison`, `flex`,
-`gnutls`, `freetype`, `gstreamer`, etc.).
+| Version | What it does |
+|---|---|
+| v0.1 to v1.0 | Subnautica 2 works reliably. Build is automated. Install is clean. |
+| v∞ | **Archive when Unknown Worlds ships a native macOS build of Subnautica 2.** |
 
-## How it works
-
-```
-┌─ Whisky.app (UI, unchanged) ────────────────────────┐
-│                                                     │
-│   ~/Library/Application Support/                    │
-│       com.isaacmarovitz.Whisky/Libraries/           │
-│       └── Wine/                ◄── calimocho writes │
-│           ├── bin/wine64       ◄── CodeWeavers Wine │
-│           └── lib/external/    ◄── GPTK D3DMetal    │
-│                                    + MoltenVK       │
-└─────────────────────────────────────────────────────┘
-```
-
-Whisky has no idea the runtime was swapped — it still launches `bin/wine64` against a bottle prefix
-exactly the same way. All UI features (bottle creation, config toggles, Winetricks, DXVK toggle)
-keep working.
-
-## License & attribution
-
-calimocho's own scripts: **LGPL 2.1+** (same as Wine).
-
-This project would not exist without the work of:
-
-- **The Wine project** — https://www.winehq.org — for 30+ years of Win32 reverse-engineering. The
-  thing we're packaging is 99% theirs.
-- **CodeWeavers** — https://www.codeweavers.com — for the macdrv + wined3d + vkd3d patches that
-  make Steam, Chromium, and modern DX12 games actually work on macOS. Their CrossOver product is
-  the reason the entire macOS Wine ecosystem exists. **If this script makes Mac gaming work for
-  you and you can afford it, please [buy CrossOver](https://www.codeweavers.com/crossover) — it's
-  one of the cleanest examples of a company funding upstream open-source work.**
-- **Apple** — for the Game Porting Toolkit D3DMetal libraries that translate DirectX 12 to Metal
-  on Apple Silicon. Closed-source but freely redistributable, included via @gcenx's repacks.
-- **MoltenVK contributors** — https://github.com/KhronosGroup/MoltenVK — for Vulkan→Metal,
-  used for the DX11 path.
-- **[@gcenx](https://github.com/Gcenx)** — for tirelessly maintaining the
-  [macOS Wine builds](https://github.com/Gcenx/macOS_Wine_builds) and
-  [GPTK repacks](https://github.com/Gcenx/game-porting-toolkit) that this script depends on.
-- **[Isaac Marovitz](https://github.com/IsaacMarovitz)** — for building Whisky, which made
-  free Wine-on-Mac approachable for thousands of people. We're standing on Whisky's shoulders.
-
-## Status
-
-🟠 **Experimental — work in progress.**
-
-- [x] Reverse-engineer Whisky's `Libraries/` layout
-- [x] Validate Wine-11-via-gcenx swap works at the binary level
-- [x] Identify the Wine-7 → Wine-11 syscall gap that breaks current Steam
-- [x] Download CrossOver published source (Wine 11.0)
-- [ ] Build CodeWeavers-patched Wine 11 from source on Apple Silicon
-- [ ] Verify the build's macdrv renders Steam's CEF UI correctly (the Whisky-stock issue)
-- [ ] Overlay GPTK 3 D3DMetal libraries
-- [ ] End-to-end test with Subnautica 2 (DX12 / UE5)
-- [ ] Polish `calimocho install` script
-- [ ] Optional: Homebrew tap (`brew install dragoshont/calimocho/calimocho`)
-
-Track progress in [docs/build-log.md](docs/build-log.md).
+Full roadmap in [docs/PLAN.md](docs/PLAN.md).
 
 ## Trademarks
 
-"CrossOver", "CodeWeavers" are trademarks of CodeWeavers, Inc.
-"Apple", "macOS", "Apple Silicon" are trademarks of Apple Inc.
+"CrossOver" and "CodeWeavers" are trademarks of CodeWeavers, Inc.
+"Apple", "macOS", "Apple Silicon", "Game Porting Toolkit", and "D3DMetal"
+are trademarks of Apple Inc.
 "Wine" is a trademark of the Wine project.
 "Steam" is a trademark of Valve Corporation.
+"Subnautica" is a trademark of Unknown Worlds Entertainment.
 
-calimocho is not affiliated with any of the above. This project simply combines their
-freely-licensed and publicly-distributed work into one convenient package for personal use.
+calimocho is not affiliated with, endorsed by, or sponsored by any of the
+above. References are nominative fair use.
+
+## License
+
+LGPL 2.1 or later for our own scripts. Non-commercial use only for the
+overall distribution because of the bundled Apple GPTK component. See
+[LICENSE](LICENSE) and [docs/relationship-with-codeweavers.md](docs/relationship-with-codeweavers.md)
+for the full breakdown.

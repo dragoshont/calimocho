@@ -4,21 +4,25 @@
 
 ## 1. Vision
 
-**One sentence**: A free, open-source, self-installing Wine runtime for Apple Silicon
-Macs that runs Steam + DX12 games as well as CrossOver does — built from CodeWeavers'
-LGPL-published source, packaged respectfully, and reproducible by anyone with a
-GitHub Action runner.
+**One sentence**: A personal recipe for running Windows games the maintainer
+misses on their Mac (currently just Subnautica 2), built from CodeWeavers'
+LGPL Wine source and Apple's redistributable GPTK D3DMetal. A stopgap that
+archives itself once Unknown Worlds ships a native macOS build of SN2.
 
 **Three audiences**:
-1. **Power users** who already use Whisky and want a working engine.
-2. **Casual gamers** who'd download a DMG, drag-and-drop, and play.
-3. **Mac gaming ecosystem maintainers** (Heroic, Lutris-Mac, gcenx, etc.) who
-   could consume our build as a dependency.
+1. The maintainer's family, who wanted to play SN2 together on their Mac.
+2. Other Mac users in the same situation (bought Subnautica 1 + Below Zero
+   on Mac, can't run SN2, can't afford CrossOver).
+3. Future-me and any contributor who wants to understand why this exists
+   and how to keep it running until SN2 ships native.
 
 **Non-goals (v1)**:
-- Not a CrossOver replacement on enterprise-grade game compatibility.
-- Not a fork of Wine — we're a *distribution* layered on upstream + CW patches.
-- Not building our own GUI from scratch (Whisky already has a good one).
+- Not a general Mac gaming platform. Compatibility is the maintainer's
+  personal list, not a service.
+- Not a CrossOver alternative for commercial use, polish, or support.
+- Not a fork of Wine. We're a distribution layered on upstream + CW patches.
+- Not building our own GUI from scratch. Whisky's archived GUI is good enough.
+- Not building anything that outlives Unknown Worlds porting SN2 to Mac.
 
 ## 2. Architecture (4 layers)
 
@@ -214,32 +218,39 @@ signature, independent of Apple's chain).
 
 ### v0.1 — "It works for me"
 - Steam UI renders without black-window bug
-- One DX12 game runs (Subnautica 2, our north star)
+- Subnautica 2 reaches main menu and plays
 - Install + rollback both work, both idempotent
 - README is honest about limitations
-- LGPL-compliant attribution
+- LGPL-compliant attribution to Wine / CodeWeavers / Apple GPTK / gcenx / Whisky
 - Tagged release with `.tar.gz` artifact
-- **Out of scope for v0.1**: DXVK, vkd3d-proton, DXMT, BattleNet, GStreamer.
-  Minimum payload only.
+- **Out of scope for v0.1**: any game other than SN2, DXVK, vkd3d-proton,
+  DXMT, BattleNet, GStreamer. Minimum payload only.
 
 ### v0.5 — "It works for friends"
-- 5+ games confirmed working (community PR'd)
-- Visual regression CI green
-- Auto-update banner in menubar app
-- Notarized DMG
-- ~100 GitHub stars / actual users
+- Subnautica 2 stays working across 3+ months of CrossOver source updates
+- Maybe 2 or 3 community-PR'd games confirmed working on other Macs
+- Visual regression CI green for Steam UI
+- Auto-update banner in optional menubar app
+- DMG installer with right-click-to-Open workaround documented
+- A handful of actual users
 - **DXMT and vkd3d-proton optional add-ons available** as alternative DX paths
   (open-source insurance for the day Apple changes GPTK terms).
 
 ### v1.0 — "It works for strangers"
-- 30+ games confirmed working
-- Tier 4 weekly game tests passing for 60 days straight
+- Subnautica 2 has been reliably working across 6+ months of CrossOver updates
+- Maybe 5 to 10 community-PR'd games (compat is a side effect, not a goal)
+- Tier 4 weekly game tests passing for 60 days straight for SN2
 - Own Homebrew tap (not upstream)
 - Sigstore provenance on every release
 - Documented contributor guide so others can submit patches
-- **Decision point**: do we build our own full launcher GUI, or focus on
-  contributing calimocho-engine support upstream to Heroic Games Launcher?
-- Silent launch — no HN/Reddit promotion; growth purely organic / word-of-mouth.
+- Silent project. Found by word of mouth or chance, not promoted.
+
+### v∞ — The retirement
+- **Trigger**: Unknown Worlds ships a native macOS build of Subnautica 2.
+- **Action**: README updated to point at the native build, repo archived,
+  release notes thank everyone, project closes gracefully.
+- If SN2 never gets a native build but the maintainer stops playing SN2,
+  same outcome but for different reasons.
 
 ## 10. Risks & mitigations
 
@@ -326,15 +337,17 @@ calimocho/
 | Milestone | Scope | ETA |
 |---|---|---|
 | **v0.0.1** | Repo scaffold (done today) | 2026-05-31 ✅ |
-| **v0.1.0** | First working local build, manual install via tarball, **ad-hoc signed** | 2026-06 |
-| **v0.2.0** | GitHub Actions builds + uploads tarball on release, **Sigstore signatures** | 2026-06 |
+| **v0.1.0** | SN2 plays via local build, manual tarball install, ad-hoc signed | 2026-06 |
+| **v0.2.0** | GitHub Actions builds + uploads tarball on release, Sigstore signatures | 2026-06 |
 | **v0.3.0** | DMG installer (ad-hoc signed, documented Gatekeeper bypass) | 2026-07 |
-| **v0.4.0** | Visual regression CI for Steam UI | 2026-08 |
-| **v0.5.0** | SwiftUI menubar app, Sparkle auto-updater (EdDSA-signed appcast) | 2026-10 |
+| **v0.4.0** | Visual regression CI for Steam UI launching from Whisky bottle | 2026-08 |
+| **v0.5.0** | Optional SwiftUI menubar app, Sparkle auto-updater (EdDSA-signed appcast) | 2026-10 |
 | **v0.6.0** | Own Homebrew tap (not upstream homebrew-cask) | 2026-11 |
-| **v1.0.0** | Stable, 30+ games confirmed, decision on Heroic integration vs own launcher | 2027-Q1 |
+| **v1.0.0** | Stable, SN2 reliably working for 6+ months, contributor guide | 2027-Q1 |
+| **v∞** | **ARCHIVE when Unknown Worlds ships a native macOS build of Subnautica 2.** Repo goes read-only, README points at the native build, everyone thanked. | when it happens |
 
-**Cadence**: ~monthly releases tracking CodeWeavers source updates. No SLA.
+**Cadence**: roughly monthly releases tracking CodeWeavers source updates.
+No SLA. May pause for weeks if life happens.
 
 ## 13. Product decisions (locked 2026-05-31)
 
