@@ -1,17 +1,34 @@
 #!/usr/bin/env bash
 # calimocho — placeholder entry point.
 # This will become the install/build orchestrator once the build recipe is locked in.
-# For now: just helpful info.
+
 set -e
-cat <<EOF
-calimocho — work in progress
 
-The build script is not yet ready. The current state:
+cat <<'EOF'
 
-  - Repo created: $(date +%Y-%m-%d)
+  ╔═══════════════════════════════════════════════════════════════════╗
+  ║                                                                   ║
+  ║      calimocho — Fortified Wine for Apple Silicon                 ║
+  ║                                                                   ║
+  ║      🍷 Built from CodeWeavers' LGPL Wine source                  ║
+  ║      🎨 Bundles Apple's GPTK D3DMetal (non-commercial use only)   ║
+  ║                                                                   ║
+  ║      If this saves you time and you can afford it, please buy     ║
+  ║      CrossOver — they fund the Wine engine this builds on:        ║
+  ║                                                                   ║
+  ║          https://www.codeweavers.com/crossover                    ║
+  ║                                                                   ║
+  ║      Also consider donating to the upstream Wine project:         ║
+  ║                                                                   ║
+  ║          https://www.winehq.org/donate                            ║
+  ║                                                                   ║
+  ╚═══════════════════════════════════════════════════════════════════╝
+
+The build script is not yet ready. Status:
+
+  - Repo created
   - CrossOver 26.1.0 source: downloaded to ~/Downloads/cxwine-build/
-  - Wine 11.9 staging swap into Whisky: validated, Steam runs but UI renders black
+  - Wine 11.9 staging swap into Whisky: validated (Steam runs, UI renders black)
   - Build from CodeWeavers source: pending
 
-Track progress in docs/build-log.md
-EOF
+Track progress: https://github.com/dragoshont/calimocho/blob/main/docs/PLAN.md

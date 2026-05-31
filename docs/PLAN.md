@@ -471,6 +471,32 @@ calimocho **does** bundle them, on the principle that:
 
 The project exists because of a gap; if the gap closes, calimocho's job is done.
 
+### How we minimize harm to CodeWeavers (8 levers)
+
+We **cannot** fully avoid undercutting CrossOver — any free alternative will
+convert *some* potential buyers into non-buyers. But we can minimize harm and
+actively redirect goodwill upstream. Eight concrete levers we commit to:
+
+1. **Be visibly worse on purpose (by honesty, not sabotage).** README states
+   we lack support, per-game profiles, anti-cheat, notarization, day-of
+   patches, polish. Users who need those things self-select to CrossOver.
+2. **Pre-purchase funnel.** README has a decision table; for most rows the
+   answer is "buy CrossOver." calimocho is the answer only for narrow
+   non-commercial cases.
+3. **Co-promotion in release notes.** Every GH release tagline includes
+   "if this saves you time, please support CodeWeavers."
+4. **Donate up the chain.** README's only donate links go to WineHQ +
+   CrossOver purchase page. No calimocho donations accepted.
+5. **Intentional release lag.** Wait 1–2 weeks after each CrossOver release
+   before publishing our rebuild. Paying users always get the fresh bits first.
+6. **No commercial features ever.** No Pro tier. No SaaS. No paid Discord.
+   No support contracts. License-required and ethics-required.
+7. **Active referral on hard cases.** When something breaks in calimocho,
+   our error message recommends the CrossOver 14-day trial before opening
+   an issue with us.
+8. **Public non-competition statement.** `docs/relationship-with-codeweavers.md`
+   exists so CodeWeavers staff Googling us see the honest position.
+
 ### Cross-linking obligations (LGPL + good manners)
 
 Every release contains:

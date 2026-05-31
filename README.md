@@ -20,6 +20,52 @@
 > — please [buy it](https://www.codeweavers.com/crossover) if you want a
 > commercially-licensed and supported product.
 
+## Should you use calimocho or buy CrossOver?
+
+**Short answer: if you can afford it, buy CrossOver.** Their $74/yr funds the
+Wine engine patches our entire project depends on. Without CodeWeavers,
+none of this exists.
+
+Honest decision table:
+
+| If you... | Use |
+|---|---|
+| Want today's working build, polish, support, anti-cheat compatibility, per-game profiles | 💳 **[CrossOver](https://www.codeweavers.com/crossover) ($74/yr)** — strongly recommended |
+| Rely on Wine games for your livelihood | 💳 **CrossOver** — the support is worth it |
+| Run a business / paid service that needs Wine | 💳 **CrossOver** — the license actually requires it (calimocho is non-commercial only) |
+| Play 5+ Windows games regularly | 💳 **CrossOver** — will save you days of debugging across your library |
+| Need an anti-cheat-protected multiplayer game (Valorant, Fortnite, etc.) | 💳 **CrossOver** — and even then, not all anti-cheat works |
+| Are a student / hobbyist / non-profit with one or two specific DX12 games | ✅ **calimocho** — you're our target audience |
+| Are a family genuinely unable to spend $74/yr on a game-runtime | ✅ **calimocho** — enjoy, no judgement |
+| Want to learn how this stack works | ✅ **calimocho** — the build script is the tutorial |
+| Want anything beyond "works on my Mac" with no SLA | 💳 **CrossOver** — we don't do support, ever |
+
+### What you get with CrossOver that calimocho does NOT (and never will) have
+
+- **Customer support** — email tickets, response in hours. We have none.
+- **Per-game CrossTie profiles** — curated for hundreds of games. We have zero.
+- **Anti-cheat workarounds** — CodeWeavers works with Riot/Epic/etc. We do not.
+- **Day-of patches** — a game breaks Monday, CrossOver may patch by Friday. calimocho patches on the next monthly release at best.
+- **Apple notarization** — zero Gatekeeper warnings. We're ad-hoc signed; you'll right-click → Open.
+- **Bottle templates** — "Install Battle.net" is one click. In calimocho you do it yourself.
+- **Native macOS integration polish** — dock badges, file associations, Spotlight. We're a CLI.
+- **Commercial license** — you can use it in a paid product. calimocho cannot.
+- **A clear conscience** — you're paying the people doing the actual hard work.
+
+If any of those matter to you, **buy CrossOver**. Truly.
+
+### Support the people whose work makes calimocho possible
+
+Even if calimocho works perfectly for you, please consider:
+
+- 💰 **[Buy CrossOver](https://www.codeweavers.com/crossover)** — funds CodeWeavers' Wine team directly
+- 🍷 **[Donate to Wine](https://www.winehq.org/donate)** — the upstream project everyone (including CrossOver) depends on
+- ⭐ **Star [gcenx's repos](https://github.com/Gcenx)** — the volunteer who maintains the macOS Wine packages we all use
+- ❤️ **Star [Whisky](https://github.com/Whisky-App/Whisky)** — even archived, it's the GUI calimocho rides on
+
+Don't donate to calimocho. Donate up the chain. We're the easy part.
+
+
 ## Why?
 
 [Whisky](https://github.com/Whisky-App/Whisky) — the popular free Mac Wine GUI — was put into permanent
