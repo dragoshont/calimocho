@@ -4,10 +4,11 @@
 > through "I'm playing the game". Plus Day 2 (normal launch), Update Day
 > (Sparkle update), and error states.
 >
-> All flows are Phase 3+ (the Calimocho.app world). Phase 1+2 users
-> interact with Whisky.app's GUI instead; see the README quick-start.
+> The Calimocho.app exists from Phase 2 onwards (drag-installed). The
+> DMG distribution path described here is Phase 4+. The Sparkle
+> auto-update path is Phase 5+.
 
-## Day 1: First install (Phase 3)
+## Day 1: First install
 
 ### Step 1. Download
 
@@ -123,7 +124,7 @@ When done:
 
 User clicks. Steam window opens (this is the moment that depends on our
 CW-Wine + GPTK build working correctly — the black-window risk from
-Phase 1 must be solved before Phase 3 ships).
+Phase 1 must be solved before Phase 2 ships).
 
 User signs in. Two-factor on phone. Library appears.
 

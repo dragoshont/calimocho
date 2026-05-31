@@ -88,8 +88,8 @@ Small NSWindow, two tabs:
 - Reset to defaults button
 
 That's the whole Settings surface. We do not expose Wine flags, DLL
-overrides, or Winetricks. If users need that they should be on Whisky
-or CrossOver instead.
+overrides, or Winetricks. Users who need that level of control should
+use CrossOver instead.
 
 ## First-run wizard
 
@@ -115,7 +115,7 @@ Shown once, when Calimocho.app launches and finds no Steam bottle.
    │ so you can play Windows-only games like Subnautica 2. │
    │                                                        │
    │ It uses CodeWeavers' Wine engine, Apple's Game        │
-   │ Porting Toolkit, and Whisky-style bottles to do it.   │
+   │ Porting Toolkit, and our own bottle layout to do it.  │
    │                                                        │
    │ This wizard takes about 5 minutes.                    │
    │                                                        │
@@ -234,7 +234,6 @@ Standard macOS About panel (NSAboutWindow), with:
    • Wine 11 (CodeWeavers patches, LGPL)
    • Apple Game Porting Toolkit (D3DMetal, non-commercial)
    • MoltenVK (KhronosGroup, Apache 2.0)
-   • Whisky-style bottle layout
 
    If you can afford it, please buy CrossOver to support
    the people who make this possible:

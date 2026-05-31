@@ -8,8 +8,7 @@
 > [CodeWeavers](https://www.codeweavers.com/crossover), the Game Porting
 > Toolkit D3DMetal from [Apple](https://developer.apple.com/games/game-porting-toolkit/),
 > and the macOS Wine packaging work of [gcenx](https://github.com/Gcenx).
-> Dropped into the [Whisky](https://github.com/Whisky-App/Whisky) GUI so the
-> bottle manager still works.
+> Wrapped in a small SwiftUI menubar app, `Calimocho.app`.
 
 [![License: LGPL 2.1+](https://img.shields.io/badge/License-LGPL_2.1+-blue.svg)](LICENSE)
 [![Use: Non-commercial only](https://img.shields.io/badge/Use-Non--commercial%20only-orange.svg)](LICENSE)
@@ -59,7 +58,8 @@ For the longer version of this story, see [docs/why-this-exists.md](docs/why-thi
 ## What it does technically
 
 calimocho takes three open or freely redistributable things, builds them
-on your Mac, and installs the result into Whisky's `Libraries/` folder:
+on your Mac, and wraps the result in a small SwiftUI menubar app
+(`Calimocho.app`):
 
 1. **Wine 11.0 with CodeWeavers' patches** (LGPL source, fetched from
    [CodeWeavers' public source mirror](https://media.codeweavers.com/pub/crossover/source/)
@@ -69,8 +69,10 @@ on your Mac, and installs the result into Whisky's `Libraries/` folder:
    [gcenx](https://github.com/Gcenx/game-porting-toolkit)).
 3. **MoltenVK** (Vulkan to Metal, Apache 2.0, bundled with GPTK).
 
-After installation, the Whisky GUI works as before. The Wine engine
-underneath is just newer and patched.
+The app exposes one user-visible action ("Open Steam for Windows") plus
+a first-run wizard that installs Steam into a Calimocho-owned bottle.
+Power-user actions are hidden behind Option-click. No bottle picker,
+no Winetricks UI, no DLL override panel.
 
 ## Standing on the shoulders of these giants
 
@@ -109,8 +111,10 @@ The whole free macOS Wine world rests on his unpaid work.
 
 ### Isaac Marovitz and the Whisky community
 [github.com/Whisky-App/Whisky](https://github.com/Whisky-App/Whisky)
-For building Whisky. Even though the project was archived in May 2025, its
-SwiftUI GUI is still the interface calimocho uses. Star the repo.
+For proving that a friendly SwiftUI front-end to Wine on macOS is
+possible, and for the years of work that went into Whisky before it was
+archived in May 2025. Calimocho's app shape borrows ideas from Whisky
+but does not depend on it. Star the repo.
 
 ### Unknown Worlds Entertainment
 For shipping Subnautica 1 and Subnautica: Below Zero natively on Mac. We
@@ -162,28 +166,35 @@ a one-row table. That is the whole supported list.
 
 ## Quick start (planned, not yet ready)
 
-```bash
-brew install --cask whisky
-git clone https://github.com/dragoshont/calimocho.git
-cd calimocho
-./bin/calimocho install
-```
+v1.0 will ship a DMG:
 
-Then open Whisky, create a bottle, install Steam, install SN2, play.
+1. Download `Calimocho-vX.Y.Z.dmg` from GitHub Releases.
+2. Open the DMG, drag `Calimocho.app` to `/Applications`.
+3. Right-click `Calimocho.app` → Open (one-time Gatekeeper bypass for
+   ad-hoc-signed apps; see [troubleshooting.md](docs/troubleshooting.md)).
+4. Follow the first-run wizard: it installs Steam into a
+   Calimocho-owned bottle.
+5. Sign in to Steam, install Subnautica 2, play.
 
-**Status**: build script is not finished yet. Track progress in
-[docs/PLAN.md](docs/PLAN.md) and [docs/build-log.md](docs/build-log.md).
+**Status**: not shipped yet. Track progress in
+[docs/PHASES.md](docs/PHASES.md) and [docs/build-log.md](docs/build-log.md).
 
 ## Roadmap
 
-Short version:
+Six phases, fully described in [docs/PHASES.md](docs/PHASES.md):
 
-| Version | What it does |
+| Phase | What it delivers |
 |---|---|
-| v0.1 to v1.0 | Subnautica 2 works reliably. Build is automated. Install is clean. |
-| v∞ | **Archive when Unknown Worlds ships a native macOS build of Subnautica 2.** |
+| 0 | Repo, docs, license, build deps (done) |
+| 1 | Wine 11 engine built from CodeWeavers source, CLI smoke tests pass |
+| 2 | `Calimocho.app` menubar app + first-run wizard, manually installed |
+| 3 | Subnautica 2 plays from inside Calimocho.app, with UE4SS console mod |
+| 4 | DMG installer, ad-hoc signed, Sigstore-provenanced |
+| 5 | GitHub Actions CI, Sparkle auto-update, visual regression tests |
+| 6+ | Optional wishlist games, one at a time |
+| ∞ | **Archive when Unknown Worlds ships a native macOS build of Subnautica 2.** |
 
-Full roadmap in [docs/PLAN.md](docs/PLAN.md).
+Full plan in [docs/PLAN.md](docs/PLAN.md).
 
 ## Trademarks
 

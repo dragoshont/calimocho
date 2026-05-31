@@ -258,10 +258,10 @@ weekly. We never drop Tier 0-2.
 
 ## Things we explicitly do not test (yet)
 
-- Performance benchmarks (TODO for v0.6, not v0.1)
+- Performance benchmarks (Phase 6+, not v1.0)
 - Memory leak detection (TODO if a leak is reported by users)
-- macOS Tahoe (until macos-27 runners exist on GitHub Actions)
+- macOS versions newer than the matrix entries (added when GitHub Actions runners exist)
 - Intel Macs (out of scope; documented in README)
 - Anti-cheat games (out of scope per AGENTS.md rule #5)
-- Multi-bottle setups (Phase 3 has exactly one bottle)
+- Multi-bottle setups (we ship exactly one bottle: STEAM)
 - Network-isolated environments (Steam requires the internet anyway)

@@ -10,17 +10,17 @@
 
 ```
 ┌─ Layer 4 — Host GUI ────────────────────────────────────────────┐
-│   Phase 1+2: Whisky.app                                         │
-│   Phase 3+:  Calimocho.app (SwiftUI menubar app)                │
+│   Phase 1:   none (CLI-only validation by maintainer)           │
+│   Phase 2+:  Calimocho.app (SwiftUI menubar app)                │
 │   Calls:     wine binary in Layer 2                             │
 ├─────────────────────────────────────────────────────────────────┤
 │ Layer 3 — Distribution                                          │
-│   - Calimocho-vX.Y.Z.dmg  (build output of Phase 3 CI)          │
+│   - Phase 2-3: drag-installed Calimocho.app (or raw out/engine) │
+│   - Phase 4+:  Calimocho-vX.Y.Z.dmg (CI-built)                  │
 │     ├── Calimocho.app/                                          │
 │     │   └── Contents/Resources/Engine/   ← bundled Layer 2      │
 │     └── Drag-here-to-install symlink                            │
-│   - Homebrew tap (cask wrapping the DMG)                        │
-│   - Sigstore signature alongside each release artifact          │
+│   - Phase 5+: Sigstore signature + Sparkle appcast              │
 ├─────────────────────────────────────────────────────────────────┤
 │ Layer 2 — Runtime payload (the engine, what we ship)            │
 │   - wine 11.0 (built from CodeWeavers LGPL source)              │
@@ -93,15 +93,18 @@
    - Reproduce Apple's `License.rtf` into `out/THIRDPARTY/Apple-GPTK/`
 7. **codesign** (10 sec)
    - `codesign --force --deep --sign - --options runtime out/Engine/`
-   - Same for Calimocho.app (Phase 3+)
+   - Same for Calimocho.app (Phase 2+)
 8. **package** (30 sec)
-   - Phase 1+2: tar engine into `calimocho-engine-vX.Y.Z-arm64.tar.zst`
-   - Phase 3+: build Calimocho.app, embed Engine, wrap in DMG via
-     `create-dmg` or `hdiutil create`
+   - Phase 1: tar engine into `calimocho-engine-vX.Y.Z-arm64.tar.zst`
+     (developer artifact only)
+   - Phase 2-3: build Calimocho.app, embed Engine, drag-install to
+     `/Applications/`
+   - Phase 4+: wrap Calimocho.app in a DMG via `create-dmg` or
+     `hdiutil create`
 9. **sign-provenance** (10 sec)
    - `cosign sign-blob --bundle out/<artifact>.bundle out/<artifact>`
    - Sigstore uses GitHub Actions OIDC token, no key management needed
-10. **upload** (Phase 3 release.yml only)
+10. **upload** (Phase 5 release.yml only)
     - GitHub Releases upload via `gh release create`
 
 ### Build caching strategy
@@ -116,20 +119,21 @@
 
 ## Layer 2: Runtime payload
 
-### Disk layout when installed (Phase 1+2)
+### Disk layout during development (Phase 1)
 
-Lives inside Whisky's existing dir:
+Lives in the repo's working tree only. Never touches /Applications:
 
 ```
-~/Library/Application Support/com.isaacmarovitz.Whisky/Libraries/
-├── Wine/              ← OURS (calimocho-built)
-├── DXVK/              ← PRESERVED from prior Whisky
-├── WhiskyWineVersion.plist  ← OUR version metadata, plist format Whisky reads
-├── winetricks         ← PRESERVED
-└── verbs.txt          ← PRESERVED
+~/Repo/calimocho/out/engine/
+├── bin/wine
+├── bin/wineserver
+├── lib/wine/{i386-windows,x86_64-windows,x86_64-unix,x86_32on64-unix}/
+└── lib/external/D3DMetal.framework
 ```
 
-### Disk layout when installed (Phase 3+)
+Maintainer invokes it directly: `out/engine/bin/wine notepad.exe`.
+
+### Disk layout when installed (Phase 2+)
 
 Bundled inside Calimocho.app:
 
@@ -150,27 +154,23 @@ Bundled inside Calimocho.app:
 └── ...
 ```
 
-The Engine inside Calimocho.app is **the same payload** as what gets
-dropped into Whisky's Libraries/ in Phase 1+2. Calimocho.app just owns
-its own copy instead of depending on Whisky's installation.
+The Engine inside Calimocho.app is **the same payload** that lives in
+`out/engine/` during Phase 1 development. The .app just gives it a
+stable install location and a GUI wrapper.
 
 ### Wine prefix layout (the user's "bottle")
 
-Phase 1+2 (Whisky-owned):
+Phase 1 (developer-only, ephemeral):
 
 ```
-~/Library/Containers/com.isaacmarovitz.Whisky/Bottles/<UUID>/
-├── system.reg          ← Wine 11 schema (migrated by wineboot --update)
+~/.local/share/calimocho-dev/prefixes/smoke/
+├── system.reg
 ├── user.reg
-├── drive_c/            ← Windows C: drive
-│   ├── windows/system32/
-│   ├── Program Files (x86)/Steam/
-│   │   └── steam.exe
-│   └── ...
-└── Metadata.plist      ← Whisky bottle config (Win version, sync mode, etc.)
+├── drive_c/
+└── (no config.json; this prefix only exists for A1.x smoke tests)
 ```
 
-Phase 3+ (Calimocho-owned):
+Phase 2+ (Calimocho-owned, persistent):
 
 ```
 ~/Library/Application Support/Calimocho/Bottles/STEAM/
@@ -186,7 +186,7 @@ uninstall; bottle data persists in app-support across reinstalls.
 
 ## Layer 3: Distribution
 
-### DMG structure (Phase 3+)
+### DMG structure (Phase 4+)
 
 ```
 Calimocho-v1.0.0.dmg (read-only mounted volume)
@@ -224,12 +224,13 @@ cosign verify-blob \
 
 ## Layer 4: Host GUI
 
-### Phase 1+2: Whisky.app
+### Phase 1: no GUI
 
-We do not modify Whisky.app. We only drop our payload into the Libraries
-folder it reads from. Whisky's UI is unchanged.
+The Phase 1 deliverable is the engine itself plus shell scripts that
+run acceptance tests. The maintainer interacts with the engine
+entirely from a terminal. No Mac-native GUI exists yet.
 
-### Phase 3+: Calimocho.app
+### Phase 2+: Calimocho.app
 
 SwiftUI app, single window-less menubar item. Components:
 
@@ -251,7 +252,7 @@ See `docs/ux/APP-DESIGN.md` for the UX details.
 
 ## Data flows
 
-### "User launches Steam" (Phase 3 path)
+### "User launches Steam" (Phase 2+ path)
 
 ```
 User clicks "Open Steam for Windows" in menubar

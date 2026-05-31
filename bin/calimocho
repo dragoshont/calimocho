@@ -26,9 +26,11 @@ cat <<'EOF'
 
 The build script is not yet ready. Status:
 
-  - Repo created
-  - CrossOver 26.1.0 source: downloaded to ~/Downloads/cxwine-build/
-  - Wine 11.9 staging swap into Whisky: validated (Steam runs, UI renders black)
-  - Build from CodeWeavers source: pending
+  - Phase 0 (foundation): done
+  - Phase 1 (build CodeWeavers Wine 11 from source): in progress
+  - Phase 2 (Calimocho.app menubar shell): not started
+  - Phase 3 (Subnautica 2 inside Calimocho.app): not started
+  - Phase 4 (DMG packaging): not started
+  - Phase 5 (CI + Sparkle auto-update): not started
 
-Track progress: https://github.com/dragoshont/calimocho/blob/main/docs/PLAN.md
+Track progress: https://github.com/dragoshont/calimocho/blob/main/docs/PHASES.md

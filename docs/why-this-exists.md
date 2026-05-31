@@ -53,8 +53,8 @@ correctly. That is the gap CrossOver fills.
 
 calimocho builds CodeWeavers' Wine patches **from their published LGPL
 source**, combines it with Apple's Game Porting Toolkit D3DMetal Framework
-(which Apple licenses for non-commercial redistribution), and drops the result
-into Whisky's `Libraries/` folder so the existing Whisky GUI keeps working.
+(which Apple licenses for non-commercial redistribution), and wraps the
+result in a small SwiftUI menubar app called `Calimocho.app`.
 
 It is the recipe I wish someone had handed me when SN2 launched.
 

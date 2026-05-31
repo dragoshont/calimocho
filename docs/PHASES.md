@@ -1,133 +1,293 @@
-# calimocho — Phase-Based Roadmap
+# calimocho — Development Phases
 
-> Locked 2026-05-31. This supersedes the ETA timeline in PLAN.md §12.
-> Three phases, each with explicit success criteria.
+> Six phases, each independently shippable. Each phase has explicit
+> acceptance criteria (see SPECS.md sections A0-A5). Phase N cannot
+> start until Phase N-1's acceptance criteria are all green.
+>
+> We never gold-plate within a phase. Ship and iterate.
 
-## Overall philosophy
+## Phase summary
 
-Three phases, each independently shippable. We do not start a phase until
-the previous one meets its success criteria. We do not gold-plate; we
-move on.
+| Phase | Title | Goal | Demo |
+|---|---|---|---|
+| **0** | Foundation | Repo, docs, rules, license, build deps. Reproducible source download with sha256 pin. | `git clone` works. `docs/PLAN.md` is current. `scripts/fetch-sources.sh` produces a verified Wine source tarball. |
+| **1** | Engine | Build CodeWeavers Wine 11 from source. CLI-only validation: `wine notepad.exe` shows a window. `wine steam.exe` reaches the Steam login UI. No GUI yet. | Maintainer runs `./scripts/build-wine.sh`, then `./scripts/test-engine.sh`, sees Steam login window without black-window bug. |
+| **2** | App shell | `Calimocho.app` exists. Menubar item + first-run wizard. Wraps the Phase 1 engine. Manually installed (drag to /Applications; no DMG yet). | Maintainer opens Calimocho.app, clicks "Install Steam", clicks "Launch", sees Steam login window inside the app's launcher. |
+| **3** | Game | Subnautica 2 installs from inside Calimocho's Steam, launches, plays. Mods (UE4SS + console commands) installed via Calimocho's bottle config. | Maintainer plays SN2 for 30+ minutes from a single Calimocho.app launch. |
+| **4** | Packaging | DMG installer with Calimocho.app inside. Ad-hoc signed. Sigstore signature alongside the DMG. README with screenshots. | A clean M-series Mac downloads the DMG, drags Calimocho.app to /Applications, completes wizard, plays SN2, following only the README. |
+| **5** | CI + auto-update | GitHub Actions builds the DMG on push to main. Sparkle auto-update wired (EdDSA-signed appcast). Visual regression test for Steam UI. Weekly SN2 launch test on self-hosted runner. | Push to main creates a DMG as a workflow artifact. Tag creates a GitHub Release. An old version self-updates to the new version via Sparkle. |
+| **6+** | Wishlist games (optional) | Test the wishlist games one at a time. Document bottle config per game. Only when the maintainer personally wants to play one. | A row in `games-i-miss-on-my-mac.md` moves from "Wishlist" to "Working". |
+| **∞** | Archive | Trigger: Unknown Worlds ships a native macOS build of Subnautica 2. | README updated to point at the native build. Repo set to read-only. Everyone thanked in a final release. |
 
-| Phase | Goal | Target completion |
-|---|---|---|
-| **Phase 1: Make Steam work** | The maintainer can launch Steam through a calimocho stack and log in. | Tonight, before sleep. |
-| **Phase 2: Make the game work** | Subnautica 2 installs from Steam, launches, reaches gameplay. | Within days. |
-| **Phase 3: Make it reproducible** | Anyone with a fresh M-series Mac can install from a DMG and reach gameplay. CI builds the DMG from scratch on push to main. | Within weeks. |
+## Phase 0: Foundation (done as of 2026-05-31)
 
----
+### Acceptance criteria
 
-## Phase 1: Make Steam work
+- [x] Repo `dragoshont/calimocho` exists, public, LGPL with non-commercial overlay
+- [x] AGENTS.md hard rules locked in
+- [x] PLAN.md + SPECS.md + ARCHITECTURE.md + TESTING.md + ux/* + ADRs all written
+- [x] CodeWeavers Wine 11 source downloaded and sha256 captured
+- [x] Apple GPTK 3.0 DMG mounted and the License.rtf read verbatim
+- [x] Build dep list pinned (`bison flex mingw-w64 gnutls freetype sdl2 pkg-config`)
 
-### Success criteria
+### Deliverables
 
-- [ ] CodeWeavers Wine 11.0 builds successfully from their published LGPL source on the maintainer's M1 Max
-- [ ] The built `wine64` binary runs and reports `wine-11.0`
-- [ ] A Wine prefix initializes against the new binary without crashing
-- [ ] Steam.exe launches under the new binary
-- [ ] **Steam UI renders correctly (no black-window bug)**
-- [ ] User can type credentials, log in, and see their Library
-- [ ] Subnautica 2 install begins (15 GB download starts)
+All in repo as of commit `5714053`.
 
-If the build fails or Steam UI still renders black, the fallback for tonight
-is to stay on CrossOver and try again tomorrow. The maintainer is not
-blocked from playing in either case (CrossOver trial is still active).
+## Phase 1: Engine
 
-### Phase 1 deliverables
+### Acceptance criteria
 
-- `wine64` binary built from CW source, installed at
-  `~/Library/Application Support/com.isaacmarovitz.Whisky/Libraries/Wine/bin/`
-- A working `Steam` Whisky bottle that the maintainer can sign in to
-- A short note in `docs/build-log.md` recording: build duration, configure
-  flags used, any compile errors hit and how they were resolved, whether
-  the Steam UI rendered correctly
+See SPECS.md section A1.
 
-### Phase 1 NOT in scope
+Summary:
+- A1.1 `wine --version` reports `wine-11.0`
+- A1.2 `wineboot --init` on a clean prefix exits 0, prefix's `system.reg`
+  shows `wineVersion.major = 11`
+- A1.3 `wine notepad.exe` produces a visible Notepad window within 10 s
+- A1.4 `wine steam.exe` produces a visible Steam login window within 60 s
+  (not solid black; Tier 3 visual regression test passes)
+- A1.5 No file in our build output was copied from
+  `/Applications/CrossOver.app/`. Provenance verified by sha256 against
+  our build output manifest.
 
-- Any GUI work (Calimocho.app does not exist yet)
-- Any DMG packaging
-- Any CI work
-- Any second-game testing
-- Any signing beyond ad-hoc
-- Documentation polishing
+### Deliverables
 
----
+- `scripts/fetch-sources.sh` (idempotent, sha256-verified)
+- `scripts/build-wine.sh` (runs configure + make, captures logs)
+- `scripts/test-engine.sh` (runs A1.1 to A1.5 in sequence)
+- `out/engine/` directory containing the built Wine + GPTK overlay
+- `docs/build-log.md` updated with: configure flags, build duration,
+  any errors hit (e.g. EXEEXT autoconf issue) and how they were fixed
 
-## Phase 2: Make the game work
+### Out of scope for Phase 1
 
-### Success criteria
+- No SwiftUI app yet
+- No DMG
+- No Calimocho.app
+- No GUI of any kind
+- No second bottle, no second game
+- No CI
 
-- [ ] Subnautica 2 finishes downloading from Steam (~15 GB)
-- [ ] SN2 launches from the Steam Library and reaches the main menu
-- [ ] D3DMetal is confirmed active (not falling back to wined3d)
-- [ ] At least 30 minutes of gameplay possible without a Wine-side crash
-  (intro crashes attributable to the game itself in Early Access do not count)
-- [ ] FPS at least 30 on Medium settings, 1080p
-- [ ] Save data persists between launches
-- [ ] UE4SS / cheat mods installed in calimocho bottle (same recipe as we did
-  for CrossOver earlier today) and Ctrl+F2 console works
+## Phase 2: App shell
 
-### Phase 2 deliverables
+### Acceptance criteria
 
-- Documented bottle config for SN2 (Windows version, sync mode, DLL overrides)
-- The CrossOver-installed SN2 game files reused (15 GB rsync into calimocho
-  bottle, avoid second download)
-- UE4SS + Console Commands mod installed with `xinput1_3.dll` proxy +
-  registry override + Ctrl+F2 rebind, same way we did for CrossOver
-- Phase 2 retro added to `docs/build-log.md`
+See SPECS.md section A2.
 
-### Phase 2 NOT in scope
+Summary:
+- A2.1 Calimocho.app launches and shows a menubar icon
+- A2.2 First-run wizard appears when no STEAM bottle exists
+- A2.3 First-run wizard's "Install Steam" step actually installs Steam
+  into a Calimocho-owned bottle at
+  `~/Library/Application Support/Calimocho/Bottles/STEAM/`
+- A2.4 Menubar "Open Steam for Windows" launches Steam and the user can
+  log in
+- A2.5 Quitting Calimocho.app cleans up all spawned Wine processes within
+  10 s of quit
+- A2.6 The app does not require Whisky.app to be installed (uninstall
+  Whisky on the test machine and confirm Calimocho still works)
 
-- Anything beyond SN2 working
-- DMG packaging
-- CI
+### Deliverables
 
----
+- `app/Calimocho.xcodeproj` (SwiftUI project)
+- `app/Calimocho/MenuBarController.swift`
+- `app/Calimocho/FirstRunWizardWindow.swift`
+- `app/Calimocho/EngineLauncher.swift` (spawns wine binary, manages
+  WINEPREFIX, redirects stdout/stderr to log files)
+- `app/Calimocho/BottleManager.swift`
+- `scripts/build-app.sh` (builds Calimocho.app, embeds out/engine,
+  ad-hoc signs)
+- Updated `docs/build-log.md` with Phase 2 retrospective
 
-## Phase 3: Make it reproducible
+### Out of scope for Phase 2
 
-### Success criteria
+- DMG (Phase 4)
+- CI (Phase 5)
+- SN2 (Phase 3)
+- Sparkle auto-update (Phase 5)
+- Settings UI beyond About box (Phase 5 polish)
 
-- [ ] A single GitHub Actions workflow runs on push to `main`
-- [ ] The workflow checks out the repo, runs the build, produces a DMG
-- [ ] The DMG passes basic structural validation (codesign --verify with ad-hoc check)
-- [ ] The DMG is uploaded as a workflow artifact AND attached to GitHub Releases on tag
-- [ ] A clean M-series Mac (Apple Silicon, macOS 15+) can download the DMG,
-  open Calimocho.app, install Steam, launch Steam, see the Library
-- [ ] Documentation explains the right-click → Open Gatekeeper bypass
+## Phase 3: Game
 
-### Phase 3 deliverables
+### Acceptance criteria
 
-- `Calimocho.app` SwiftUI menubar app (see APP-DESIGN.md)
-- DMG installer with the engine bundled
+See SPECS.md section A3.
+
+Summary:
+- A3.1 Subnautica 2 finishes downloading (15 GB) inside Calimocho's Steam
+- A3.2 SN2 reaches main menu within 60 s of clicking Play
+- A3.3 D3DMetal is confirmed active (not wined3d fallback)
+- A3.4 Gameplay sustains at least 30 FPS at 1080p Medium for 30
+  consecutive minutes on M1 Max
+- A3.5 Save data persists across game restarts and across Calimocho.app
+  restarts
+- A3.6 UE4SS + Console Commands mod installed; Ctrl+F2 opens console
+  in-game; `god` command works
+- A3.7 The maintainer plays a full 30+ minute session with their son
+  without a Wine-side crash
+
+### Deliverables
+
+- `bottles/sn2/config.json` (bottle config: Win 10 or 8.1, ESync,
+  D3DMetal on, DXVK off, AVX on, xinput1_3 DLL override)
+- `scripts/install-sn2-mods.sh` (UE4SS + Console Commands installer,
+  same recipe we used for CrossOver in May)
+- `scripts/migrate-sn2-from-crossover.sh` (optional one-off: if
+  Subnautica2 is installed in a CrossOver bottle, rsync the 15 GB into
+  Calimocho's bottle to skip re-download)
+- Updated `docs/games-i-miss-on-my-mac.md` with SN2 status "Working"
+  and the date tested
+
+### Out of scope for Phase 3
+
+- Hogwarts, Green Hell, They Are Billions stay on Wishlist
+- Anti-cheat games (never in scope)
+- Native Mac games (those run natively, not our problem)
+
+## Phase 4: Packaging
+
+### Acceptance criteria
+
+See SPECS.md section A4.
+
+Summary:
+- A4.1 `scripts/build-dmg.sh` produces `Calimocho-vX.Y.Z.dmg`
+- A4.2 DMG passes `hdiutil verify`
+- A4.3 DMG mounts on macOS 15 and 26 (last two macOS versions)
+- A4.4 Calimocho.app inside the DMG is ad-hoc signed
+  (`codesign --verify` exits 0)
+- A4.5 A clean M-series Mac that has never had Calimocho installed:
+  download DMG → drag to /Applications → right-click → Open → wizard →
+  Steam → SN2. All steps complete in under 10 minutes (excluding the
+  SN2 game download).
+- A4.6 Uninstall via app menu cleans up all files. No orphan processes.
+
+### Deliverables
+
+- `scripts/build-dmg.sh` (uses `create-dmg` or `hdiutil create`)
+- `dmg-assets/` (background image, layout config)
+- README updated with v1.0 install flow + screenshots
+- First version of `tests/manual/release-checklist.md`
+
+### Out of scope for Phase 4
+
+- Apple notarization (never; we are ad-hoc only)
+- App Store distribution (impossible; Wine ships a JIT)
+- CI builds (Phase 5)
+- Auto-update (Phase 5)
+
+## Phase 5: CI + auto-update
+
+### Acceptance criteria
+
+See SPECS.md section A5.
+
+Summary:
+- A5.1 `.github/workflows/build.yml` runs on every push to main and PR
+- A5.2 build.yml passes Tier 0-3 tests (TESTING.md), produces a DMG as
+  workflow artifact
+- A5.3 `.github/workflows/release.yml` runs on every tag matching `v*`,
+  creates GitHub Release with DMG + sha256 + cosign signature
+- A5.4 `.github/workflows/test-matrix.yml` runs weekly on macos-15 and
+  macos-26
+- A5.5 Sparkle integration in Calimocho.app polls a public appcast.xml,
+  detects new version, downloads + verifies EdDSA + replaces app
+- A5.6 An old version of Calimocho.app self-updates to a new version
+  end-to-end without manual intervention
+- A5.7 Build is reproducible: same git ref + same SOURCE_DATE_EPOCH
+  produces identical sha256
+
+### Deliverables
+
 - `.github/workflows/build.yml`
 - `.github/workflows/release.yml`
-- Sigstore signature on every release artifact
-- Updated README with the user-facing install flow
-- Cleaned-up `bin/calimocho` CLI for power users and the build script
+- `.github/workflows/test-matrix.yml`
+- `.github/workflows/lint.yml`
+- `appcast.xml` (published to raw.githubusercontent.com URL)
+- `scripts/sign-with-sigstore.sh`
+- `scripts/sparkle-eddsa-sign.sh`
+- `tests/visual/baseline/` (committed baseline screenshots for Steam UI,
+  Notepad window, SN2 main menu)
+- `tests/visual/baseline-bottle.tar.zst` (pre-populated bottle for
+  visual regression tests, sha256-pinned)
 
-### Phase 3 NOT in scope
+### Out of scope for Phase 5
 
-- Apple notarization (no Developer ID)
-- App Store distribution (not allowed for Wine apps)
-- Heroic integration
-- Phase 2+ games (they remain wishlist)
+- Game-launch tests in CI (would need GPU; we use self-hosted M1 Max
+  for weekly Tier 4 instead)
+- Performance benchmarks (Phase 6+)
+- Telemetry, analytics, crash reporting (never; AGENTS.md rule #6)
 
----
+## Phase 6+: Wishlist games
 
-## Phase order is strict
+### Acceptance criteria
 
-Phase 1 must complete before Phase 2 starts.
-Phase 2 must complete before Phase 3 starts.
+Same as A3.1 to A3.7 but for the specific game being tested.
 
-If Phase 1 fails tonight, Phase 2 stays in CrossOver and Phase 1 retries
-tomorrow with different approach (Wine 10 instead of 11, or specific CW
-patches isolated, or alternative compile flags).
+### Deliverables
+
+Per game:
+- `bottles/<game-id>/config.json`
+- `scripts/install-<game>-mods.sh` if needed
+- Update `docs/games-i-miss-on-my-mac.md` with the new row
+
+### Trigger
+
+The maintainer personally wants to play the game. There is no community
+process for adding games.
+
+### Out of scope
+
+- Games requiring kernel anti-cheat
+- Games already native on Mac
+- Games the maintainer does not personally want to play
+
+## Phase ∞: Archive
+
+### Trigger
+
+Unknown Worlds Entertainment ships a native macOS build of Subnautica 2.
+
+### Action
+
+1. Update README: point users at the native Mac build of SN2, thank
+   them for their patience.
+2. Add a final ADR (e.g. ADR-9999-sunset.md) recording the date and
+   reason.
+3. Tag a final release v1.x.0-sunset that still works for users who
+   want to keep playing on the old recipe.
+4. Set the repo to read-only (Settings → General → Archive this
+   repository).
+5. Thank everyone in the README's final commit: Wine project,
+   CodeWeavers, gcenx, Whisky, Apple, KhronosGroup, Unknown Worlds,
+   every contributor and tester.
+
+If SN2 never gets a native build and the maintainer stops playing SN2
+for any reason, same procedure but trigger is different.
 
 ## Cross-phase invariants
 
-- All work respects the positioning rules in `docs/PLAN.md §14`
-- All artifacts respect the license terms in `LICENSE`
-- All commits go to the public repo with honest commit messages
-- All known issues go in `docs/build-log.md` so future-us understands the
-  reasoning
+- Every phase commit ends with all of:
+  - The relevant SPECS.md acceptance criteria green (manual or CI)
+  - The `docs/build-log.md` updated with what was learned
+  - A `git tag` for the phase if it produced a user-installable artifact
+- Phase order is strict; do not skip ahead
+- Within a phase: ship the minimum that meets acceptance, then move on
+- No new strategic decisions without an ADR
+- No commits that violate AGENTS.md rules
+
+## Phase status snapshot
+
+| Phase | Status | Started | Acceptance green |
+|---|---|---|---|
+| 0 Foundation | DONE | 2026-05-30 | 2026-05-31 |
+| 1 Engine | NOT STARTED | — | — |
+| 2 App shell | NOT STARTED | — | — |
+| 3 Game | NOT STARTED | — | — |
+| 4 Packaging | NOT STARTED | — | — |
+| 5 CI + auto-update | NOT STARTED | — | — |
+| 6+ Wishlist | NOT STARTED | — | — |
+| ∞ Archive | not triggered | — | — |
+
+Update this table as phases advance.
