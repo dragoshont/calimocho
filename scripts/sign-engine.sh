@@ -22,11 +22,17 @@ while IFS= read -r -d '' f; do
   [[ -L "$f" ]] && continue
   # Detect Mach-O via `file` (handles thin + fat, arm64 + x86_64).
   if file -b "$f" | grep -q 'Mach-O'; then
-    # Adhoc sign with entitlements. We do NOT use --options runtime: the
-    # hardened runtime conflicts with Wine's executable-memory layout on
-    # macOS 26 (process killed by AMFI before main() runs).
+    # Adhoc sign with entitlements + hardened runtime. The hardened
+    # runtime is compatible with x86_64 Wine because the entitlements
+    # plist grants the four loosening keys Wine needs:
+    #   allow-jit, allow-unsigned-executable-memory,
+    #   disable-executable-page-protection, allow-dyld-environment-vars,
+    #   disable-library-validation.
+    # The runtime flag adds defense-in-depth (DYLD_INSERT_LIBRARIES is
+    # respected only with our entitlement, env-var injection from
+    # outside is blocked, etc.) without breaking Wine.
     codesign --force --timestamp=none --sign - \
-             --entitlements "$ENT" "$f"
+             --entitlements "$ENT" --options runtime "$f"
     count=$((count+1))
   fi
 done < <(find "$OUT" -type f -print0)
