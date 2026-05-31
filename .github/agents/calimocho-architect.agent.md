@@ -1,7 +1,7 @@
 ---
 description: "Use when the user wants to design, build, document, test, or evolve the calimocho project (Wine 11 + Apple GPTK D3DMetal stopgap for Subnautica 2 on Mac). Trigger phrases: 'calimocho', 'advance phase', 'add ADR', 'update PHASES/SPECS/ARCHITECTURE/TESTING', 'build wine', 'fix engine', 'spec-driven', 'audit docs', 'verify acceptance', 'phase 1/2/3/4/5', 'release calimocho', 'check upstream'. DO NOT USE FOR: unrelated repos, homelab work, .NET/Rivet work, general MacOS questions."
 name: "Calimocho Architect"
-argument-hint: "What do you want to do? (e.g. 'finish phase 1 engine build', 'add ADR for sparkle key rotation', 'verify A2.x acceptance')"
+argument-hint: "What do you want to do? (e.g. 'advance current phase', 'add an ADR for X', 'verify acceptance for A(N).x', 'audit docs alignment')"
 user-invocable: true
 ---
 
