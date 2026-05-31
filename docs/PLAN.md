@@ -1,6 +1,19 @@
 # calimocho — Product & Engineering Plan
 
-> Living document. Edit freely as we learn. Version 0.1 — 2026-05-31.
+> Living document. Edit freely as we learn. Version 0.2 — 2026-05-31.
+>
+> This is the **strategic** document. For tactical details see:
+>
+> - [SPECS.md](SPECS.md) — what every component promises (per-phase acceptance criteria)
+> - [ARCHITECTURE.md](ARCHITECTURE.md) — how it's built (4 layers, byte-by-byte)
+> - [PHASES.md](PHASES.md) — phase 1/2/3 scopes
+> - [TESTING.md](TESTING.md) — 5-tier test strategy
+> - [ux/USER-JOURNEY.md](ux/USER-JOURNEY.md) — Day 1 / Day 2 / update day flows
+> - [ux/APP-DESIGN.md](ux/APP-DESIGN.md) — Phase 3 SwiftUI app design
+> - [ADR/](ADR/) — individual architectural decisions, Nygard format
+> - [AGENTS.md](../AGENTS.md) — rules of engagement for contributors and AI agents
+> - [LICENSE](../LICENSE) and [relationship-with-codeweavers.md](relationship-with-codeweavers.md)
+
 
 ## 1. Vision
 
