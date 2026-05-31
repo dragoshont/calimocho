@@ -1,5 +1,7 @@
---- a/loader/wine_info.plist.in	2026-05-31 23:59:51
-+++ /Users/dragoshont/Downloads/cxwine-build/sources/sources/wine/loader/wine_info.plist.in	2026-05-31 23:59:51
+# applied-marker: app.calimocho.wineloader
+# Replaces CodeWeavers wineloader bundle identifiers — see ADR-0009.
+--- a/loader/wine_info.plist.in
++++ b/loader/wine_info.plist.in
 @@ -7,13 +7,13 @@
      <key>CFBundleDevelopmentRegion</key>
      <string>English</string>
