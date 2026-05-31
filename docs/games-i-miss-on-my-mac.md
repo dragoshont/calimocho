@@ -13,8 +13,21 @@ It is a small personal list, published in case it helps.
 | Game | Why I miss it | API | Status | Hardware tested | Date |
 |---|---|---|---|---|---|
 | **Subnautica 2** (Early Access) | I bought the first two Subnautica games on Mac. The third should also run on Mac. | DX12 | Working (using CrossOver-equivalent stack) | M1 Max, macOS 26.5 | 2026-06 |
+| **They Are Billions** | Steampunk colony defense game I loved on Windows years ago. No Mac build. | DX11 | Wishlist (not tested yet) | n/a | n/a |
 
-That is the whole list.
+That is the current list. It will grow if the maintainer gets time to test
+more of his wishlist on calimocho.
+
+### Wishlist convention
+
+Rows with `Wishlist (not tested yet)` are games the maintainer would personally
+like to play if calimocho ever gets there. They are **not** promises and they
+are **not** open for community lobbying. They exist in the table so the project
+shape stays honest: this can grow, but only along the maintainer's actual
+gaming interests.
+
+If you want to test one of the wishlist entries on your own Mac and report
+back, PRs welcome (see "How to add a game" below).
 
 ## Why this list is short
 
