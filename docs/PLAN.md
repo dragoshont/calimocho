@@ -214,12 +214,13 @@ signature, independent of Apple's chain).
 
 ### v0.1 — "It works for me"
 - Steam UI renders without black-window bug
-- One DX11 game runs (e.g. War Thunder, free)
 - One DX12 game runs (Subnautica 2, our north star)
 - Install + rollback both work, both idempotent
 - README is honest about limitations
 - LGPL-compliant attribution
 - Tagged release with `.tar.gz` artifact
+- **Out of scope for v0.1**: DXVK, vkd3d-proton, DXMT, BattleNet, GStreamer.
+  Minimum payload only.
 
 ### v0.5 — "It works for friends"
 - 5+ games confirmed working (community PR'd)
@@ -227,6 +228,8 @@ signature, independent of Apple's chain).
 - Auto-update banner in menubar app
 - Notarized DMG
 - ~100 GitHub stars / actual users
+- **DXMT and vkd3d-proton optional add-ons available** as alternative DX paths
+  (open-source insurance for the day Apple changes GPTK terms).
 
 ### v1.0 — "It works for strangers"
 - 30+ games confirmed working
@@ -368,7 +371,135 @@ calimocho/
 - **README tone**: explicitly low-key. "Use at your own risk, no support, family
   project shared in public."
 
-## 14. Today's next concrete step
+## 14. Ecosystem positioning
+
+calimocho exists in a small, friendly ecosystem of macOS Wine projects. Being a
+good neighbor matters more than market share. Specifically:
+
+### Who's already in this space
+
+| Project | Maintainer | Scope | Status |
+|---|---|---|---|
+| **CrossOver** | CodeWeavers, Inc. | Commercial product, polished GUI + curated profiles + support | Active, paid ($74/yr) |
+| **Whisky** | Isaac Marovitz | Free SwiftUI GUI over Wine 7 + GPTK 1 | **Archived May 2025** |
+| **Heroic Games Launcher** | Flavio Lima et al. | Multi-store (Epic/GOG/Amazon) game launcher; delegates engine to gcenx | Active |
+| **Wineskin / Kegworks** | Gcenx | App-bundle wrappers around community Wine builds | Active |
+| **gcenx/macOS_Wine_builds** | gcenx | Tarballs of upstream Wine 11.x for macOS | Active, key dependency |
+| **gcenx/game-porting-toolkit** | gcenx | Repacks of Apple's GPTK D3DMetal as redistributable tarballs | Active, key dependency |
+| **gcenx/winecx** (now deleted) | gcenx | *Used to* host wine-crossover builds | **Stopped at CW 23.0.1 (Nov 2023)** |
+| **DXMT** | 3Shain | Open-source DX10/11 → Metal translator (no Vulkan layer) | Active, used by Heroic |
+| **DXVK** | doitsujin | DX9/10/11 → Vulkan, cross-platform | Active, mature |
+| **vkd3d-proton** | Valve / Hans-Kristian Arntzen | DX12 → Vulkan, mature on Linux, OK on Mac via MoltenVK | Active |
+| **MoltenVK** | KhronosGroup | Vulkan → Metal | Active, baseline tech |
+
+### The gap calimocho fills
+
+gcenx explicitly declined to bundle CrossOver-patched Wine **together with** GPTK
+D3DMetal in a single drop-in package (see
+[Heroic issue #3372](https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher/issues/3372)).
+His stated reason: he doesn't want to undercut CodeWeavers' paid product, since
+for casual users a free "CW-Wine + GPTK" bundle would functionally equal
+CrossOver minus the polish/support.
+
+calimocho **does** bundle them, on the principle that:
+- The components are individually free + LGPL/redistributable
+- Users who want polish + support should still buy CrossOver
+- The gap should exist for users who can't afford CrossOver and don't have
+  the time to manually assemble the pieces from 4 different repos
+
+### Positioning rules
+
+1. **Always credit gcenx upfront.** Every release note, every README section,
+   the install script's banner — acknowledge that calimocho depends on
+   his builds and would not exist without them. He's the unsung hero of
+   macOS Wine.
+2. **Always credit CodeWeavers + link to CrossOver purchase page.** Anywhere
+   we mention Wine 11 source, mention it came from CW. README has a "please
+   buy CrossOver if you can afford it" callout (already done).
+3. **Never advertise as "free CrossOver alternative".** Frame as "Whisky's
+   missing engine update." That's a much smaller, more honest niche.
+4. **Never bundle the GPTK D3DMetal binaries in our own GitHub releases.**
+   Download them at install time from gcenx's release URLs. This way:
+   - We don't redistribute Apple's binary (avoids any future EULA changes)
+   - gcenx remains the canonical source for GPTK on macOS
+   - Our release tarball stays small (just CW Wine + glue)
+5. **Never PR "please add calimocho as engine option" to Heroic.** They
+   delegated the engine to gcenx; injecting ourselves between them would
+   create awkward dynamics. If Heroic users want calimocho, they can
+   install it manually — we're upstream of Heroic's concerns.
+6. **Never disparage gcenx's decision to stop at CW 23.** His reasons are
+   ethical and we respect them; we just made a different call.
+7. **Never claim to fix DXMT/DXVK/Wine bugs that should go upstream.** If
+   we find a real bug, file it with the right project + link from our patch.
+8. **Quietly mirror the build recipes, never the binaries** — except for our
+   own ad-hoc-signed Wine build, which is the actual *value-add* of calimocho.
+
+### How we'd react if any maintainer asks us to change something
+
+- **gcenx says "please stop"** → We comply. The whole project is downstream of
+  his work; we have no leverage to push back, and frankly we shouldn't want any.
+- **CodeWeavers files a complaint** → Very unlikely (we're squeaky LGPL),
+  but if they do: comply, talk it through, adjust.
+- **Whisky maintainer comes back from hiatus and revives the project** →
+  We immediately update README to point to Whisky as the preferred path,
+  and reposition calimocho as a temporary stopgap or shut down entirely.
+- **Heroic adds first-class CW-Wine+GPTK support themselves** → We point
+  users there and archive calimocho.
+
+The project exists because of a gap; if the gap closes, calimocho's job is done.
+
+### Cross-linking obligations (LGPL + good manners)
+
+Every release contains:
+- `THIRDPARTY/CodeWeavers/` — LICENSE + a NOTICE pointing to
+  `https://www.codeweavers.com/crossover` and the source we built
+- `THIRDPARTY/gcenx/` — attribution + links to the upstream repos
+- `THIRDPARTY/Apple-GPTK/` — EULA text + Apple's developer page link
+- `THIRDPARTY/Wine/` — upstream Wine project credits + LGPL text
+- `THIRDPARTY/MoltenVK/` — Apache 2.0 license + KhronosGroup link
+- `THIRDPARTY/README.md` — a single document explaining "who made what, why
+  you should thank them, and where to send money/love"
+
+### Communications hygiene
+
+- README explicitly tagged "experimental, no support, no SLA"
+- Issues template tells users to file game bugs with **the game developer**,
+  Wine bugs with **upstream Wine**, GPTK issues with **Apple**, calimocho
+  bugs with us (and only the last category).
+- No Discord server (until/unless we want to commit to running one).
+- No social media presence beyond the GitHub repo.
+- If anyone writes about us (blog, video), respond politely, don't promote,
+  don't ask for stars.
+
+## 15. Today's next concrete step
+
+Kick off the local build of CW Wine 11. Workstream:
+
+```bash
+cd ~/Downloads/cxwine-build/sources/wine
+brew bundle --file=- <<EOF
+brew "bison"
+brew "flex"
+brew "mingw-w64"
+brew "gnutls"
+brew "freetype"
+brew "sdl2"
+brew "gstreamer"
+brew "pkg-config"
+brew "cmake"
+EOF
+./configure --prefix=$HOME/Repo/calimocho/build/wine-prefix \
+            --enable-archs=x86_64,i386 \
+            --without-x \
+            --disable-tests \
+            --with-mingw 2>&1 | tee /tmp/cx-configure.log | tail -30
+```
+
+If configure exits clean → `make -j10` (~40 min).
+If configure complains → install missing dep, rerun.
+
+Once we have a `wine64` that runs, do steps 3-17 from §3 of this plan, copy
+findings into `docs/build-log.md`, commit, push.
 
 Kick off the local build of CW Wine 11. Workstream:
 
