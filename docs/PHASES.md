@@ -69,6 +69,37 @@ Summary:
 - No second bottle, no second game
 - No CI
 
+### Phase 1.5 followups (carried into Phase 2)
+
+These were intentionally deferred from Phase 1 close. Phase 2 cannot
+close until each is addressed:
+
+- **A1.4 Steam login** — deferred because it requires a Steam-installed
+  bottle, which is the Phase 2 wizard's "Install Steam" deliverable.
+  Retest A1.4 against the wizard-installed bottle as part of A2.4.
+- **Bundled runtime libraries** — `out/engine/bin/wine` currently
+  depends on `/usr/local/lib/libfreetype.6.dylib` and friends from the
+  x86_64 Homebrew. Calimocho.app must be self-contained:
+  `install_name_tool -change` SONAME paths to `@loader_path/../lib/external/`
+  and copy the dylibs in. Owned by A2.1 (build-app.sh).
+- **Engine env-var wrapper** — `WINEDLLOVERRIDES=mscoree,mshtml=`,
+  `DYLD_FALLBACK_LIBRARY_PATH=...`, and stale-wineserver cleanup are
+  currently set only by `test-engine.sh`. The shipping `bin/wine`
+  invocation in Calimocho.app must bake them in. Owned by A2.1
+  (EngineLauncher.swift).
+- **A1.3 visual NCC check** — A1.3 currently passes on "process alive
+  after 6s", not on the SPECS-mandated screencapture + ImageMagick NCC
+  ≥ 0.85 against `tests/visual/baseline/notepad-window.png`. The
+  baseline image and the Tier 3 harness are Phase 5 deliverables; A1.3
+  upgrades from PARTIAL to FULL pass when that lands.
+- **A1.5 against a real CrossOver install** — A1.5 today only
+  trivially passes (CrossOver not installed on this machine). The
+  CI matrix (Phase 5) will run A1.5 on a runner with CrossOver Trial
+  installed to do a real sha256 comparison.
+- **`fixup-config-h.sh` version literal** — currently hardcodes
+  `PACKAGE_VERSION "11.0"`. Should read the `VERSION` file from the
+  source tree. Owned by next CodeWeavers source bump.
+
 ## Phase 2: App shell
 
 ### Acceptance criteria

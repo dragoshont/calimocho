@@ -1,0 +1,12 @@
+[2026-05-31T22:51:37Z] test-engine: A1.1 wine --version
+[2026-05-31T22:51:37Z] test-engine:   reported: wine-11.0
+[2026-05-31T22:51:37Z] test-engine: PASS A1.1
+[2026-05-31T22:51:37Z] test-engine: A1.2 wineboot --init on clean prefix
+[2026-05-31T22:51:52Z] test-engine:   wineboot exited 0 in 15s
+[2026-05-31T22:51:52Z] test-engine: PASS A1.2 (prefix created, system.reg present)
+[2026-05-31T22:51:52Z] test-engine: A1.3 wine notepad.exe
+[2026-05-31T22:51:58Z] test-engine: PASS A1.3 (notepad process alive — visual NCC check is a Tier 3 task, deferred)
+[2026-05-31T22:51:58Z] test-engine: SKIP A1.4 (re-run with --with-steam against a Steam-installed prefix)
+[2026-05-31T22:51:58Z] test-engine: A1.5 no copied CrossOver binaries
+[2026-05-31T22:51:58Z] test-engine: PASS A1.5
+[2026-05-31T22:51:58Z] test-engine: OVERALL: PASS
