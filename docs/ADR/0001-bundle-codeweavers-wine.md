@@ -73,4 +73,7 @@ The bundled artifacts include:
 
 - AGENTS.md rule #1 (we compile from source)
 - ADR-0007 (we never copy binaries)
+- ADR-0010 (host arch is x86_64; runs under Rosetta 2 on Apple Silicon —
+  the realized form of "we ship a working Wine on macOS Apple Silicon"
+  that this ADR set out to deliver)
 - docs/PHASES.md Phase 1
