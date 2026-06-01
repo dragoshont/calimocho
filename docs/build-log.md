@@ -402,3 +402,83 @@ further investigation:
 
 This is now a Steam/CEF integration debugging problem, not a shim
 design problem. The shim itself is sound.
+
+## 2026-06-01 (cont'd) — Phase 3 session 1: shim reach confirmed, dxgi gap identified
+
+Continuing on branch `phase3-cef-integration`. Two root causes
+found and one fixed; the remaining one documented in ADR-0016.
+
+### Why the shim log was empty during Steam runs
+
+`bin/calimocho-wine` defaulted `WINEDLLOVERRIDES` to
+`d3d11,dxgi=n` (native = DXVK), explicitly disabling our builtin
+shim. The comment in the file documented prior experiments that
+predated the shim and were never revisited. Tier-1 unit test
+passed in isolation only because tests were run by hand with
+`=b` set in the environment.
+
+Fix: flipped default to `d3d11,dxgi=b` in `bin/calimocho-wine`
+and synced to `out/engine/bin/calimocho-wine`. Users who want
+DXVK again can `WINEDLLOVERRIDES=...d3d11,dxgi=n calimocho-wine`.
+
+### Second issue: Wine 11 builtin loader requires the file to exist in the prefix
+
+Even with `=b`, Wine 11 refused to load `d3d11.dll` if the bottle's
+`drive_c/windows/system32/d3d11.dll` was missing (or moved aside).
+Error: `Library d3d11.dll ... not found, status c0000135`. Wine's
+builtin loader still does the prefix-side filesystem probe before
+falling back to the engine's `lib/wine/x86_64-windows/`.
+
+Fix: copy `d3d11.dll` + `dxgi.dll` from
+`out/engine/lib/wine/{x86_64,i386}-windows/` into
+bottle's `system32`/`syswow64` when preparing the prefix.
+
+After both fixes, Tier-1 test PASSES via `bin/calimocho-wine`
+(rc=0, hr=S_OK, FL 11.0 device, shim log populated).
+
+### Steam launch with the fix: ENTER but no RETURN
+
+Shim log under Steam load (CEF GPU subprocess):
+
+```text
+init: ready (CreateDevice=0x215355ea8, ...)
+create_device: ENTER adapter=0x2b95e0 driver_type=0 flags=0x0
+                levels_count=5 sdk_version=7
+(no RETURN line)
+```
+
+ENTER count: 1. RETURN count: 0. **D3DMetal is reached but never
+returns.** Adapter pointer is non-NULL (CEF's ANGLE enumerated it
+via `IDXGIFactory1::EnumAdapters1` first) and driver_type=UNKNOWN
+(per Microsoft docs, required when adapter != NULL).
+
+Tier-1 worked because it passes `adapter=NULL, driver_type=HARDWARE`
+— D3DMetal allocates its own adapter internally. With a wined3d-
+backed adapter pointer handed in from wine's builtin `dxgi.dll`,
+D3DMetal can't dereference it (different vtable / different
+private layout) and faults.
+
+CEF's next log lines confirm the user-visible symptom one layer up:
+
+```text
+EGL Driver message (Critical) eglInitialize: No available renderers
+eglInitialize D3D11 failed with error EGL_NOT_INITIALIZED
+EGL Driver message (Error) eglCreateContext: Requested GLES version
+                                              (3.0) > max (2,0)
+```
+
+CEF falls back to GLES 2.0 → compositor disabled → black window.
+
+### Decision
+
+Documented in ADR-0016: implement the dxgi.dll D3DMetal shim that
+ADR-0015's audit table planned (~250 lines, "dxgi same trio") but
+the first pass skipped. The d3d11 shim alone is insufficient; the
+adapter pointer must originate from D3DMetal end-to-end.
+
+### Files changed this session
+
+- `bin/calimocho-wine`: default override flipped to `=b`
+- `out/engine/bin/calimocho-wine`: synced
+- `docs/ADR/0016-dxgi-shim-required-for-cef.md`: new
+- `docs/build-log.md`: this entry
