@@ -1,0 +1,140 @@
+# calimocho CI build workflow
+#
+# Runs the full Phase 1 engine pipeline on every push and PR.
+# See ADR-0011 for the rationale (CI brought forward from Phase 5).
+#
+# This is the only Phase 1.5 CI workflow. Phase 5 will add:
+#   - release.yml (Sigstore-signed DMG on tag)
+#   - test-matrix.yml (multi-OS weekly)
+#   - lint.yml (markdown + shell)
+
+name: build
+
+on:
+  push:
+    branches-ignore:
+      - 'gh-pages'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build engine (x86_64 under Rosetta, macOS arm64 runner)
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      # Match the layout scripts/fetch-sources.sh defaults to. Putting
+      # it under the workspace lets us cache it across runs.
+      ROOT: ${{ github.workspace }}/.cache/cxwine-build
+      # Force the test script's no-Mono / dyld path env without us
+      # having to remember it.
+      WINEDLLOVERRIDES: "mscoree,mshtml="
+      DYLD_FALLBACK_LIBRARY_PATH: "/usr/local/lib:/usr/lib"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show host info
+        run: |
+          uname -a
+          sw_vers
+          xcode-select -p
+          arch
+
+      # --- Cache the upstream tarballs (cx + GPTK redist). Keyed on
+      #     versions.json sha so a version bump invalidates cleanly. ---
+      - name: Cache upstream tarballs
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.ROOT }}
+          key: cxwine-tarballs-${{ hashFiles('versions.json') }}
+          restore-keys: |
+            cxwine-tarballs-
+
+      # --- Cache the x86_64 brew formulae installation. ---
+      - name: Cache x86_64 Homebrew formulae
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/Homebrew
+            /usr/local/Cellar
+            /usr/local/opt
+            /usr/local/var/homebrew
+          key: x86-brew-${{ runner.os }}-${{ hashFiles('scripts/prep-build-deps.sh') }}
+          restore-keys: |
+            x86-brew-${{ runner.os }}-
+
+      # --- Cache the wine build directory (incremental builds). ---
+      - name: Cache wine build directory
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/wine
+          key: wine-build-${{ runner.os }}-${{ hashFiles('versions.json', 'patches/wine/**', 'scripts/fixup-config-h.sh', 'scripts/build-wine.sh') }}
+          restore-keys: |
+            wine-build-${{ runner.os }}-
+
+      - name: Prep build deps
+        env:
+          # GH runners pre-grant passwordless sudo for the runner user;
+          # NONINTERACTIVE keeps brew quiet otherwise.
+          NONINTERACTIVE: 1
+        run: |
+          scripts/prep-build-deps.sh
+
+      - name: Fetch sources (CodeWeavers Wine + GPTK redist tarball)
+        run: |
+          scripts/fetch-sources.sh
+
+      - name: Apply calimocho patches
+        run: |
+          scripts/patch-sources.sh "$ROOT/sources/wine"
+
+      - name: Build wine (x86_64 under Rosetta)
+        env:
+          SRC: ${{ github.workspace }}/.cache/cxwine-build/sources/wine
+          JOBS: 4
+        run: |
+          scripts/build-wine.sh
+
+      - name: Overlay Apple GPTK D3DMetal
+        env:
+          REDIST_TARBALL: ${{ github.workspace }}/.cache/cxwine-build/gptk-redist.tar.zst
+        run: |
+          scripts/overlay-gptk.sh
+
+      - name: Ad-hoc sign engine
+        run: |
+          scripts/sign-engine.sh
+
+      - name: Run A1.x acceptance tests
+        run: |
+          scripts/test-engine.sh
+
+      - name: Upload acceptance log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase1-acceptance-${{ github.sha }}
+          path: |
+            docs/.phase1-make.log
+            out/engine/share/wine/wine.inf
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload engine artifact (cold-cache builds only, on main)
+        if: github.ref == 'refs/heads/main' && success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: calimocho-engine-${{ github.sha }}
+          path: out/engine/
+          retention-days: 7
