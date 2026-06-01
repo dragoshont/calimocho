@@ -230,7 +230,7 @@ them):
 - Logs live under `~/Library/Logs/Calimocho/`. The app writes
   nowhere else.
 - The shipped error template (CLI stderr + GUI dialogs) is fixed:
-  ```
+  ```text
   calimocho: ERROR <short title>
     Reason: <plain English, non-native-English-friendly>
     Fix:    <what to try>
@@ -313,6 +313,111 @@ If you are an AI agent reading this to help with the project:
   current phase scope matches the task
 - Update the todo list when scope shifts mid-session
 - When in doubt, write a question to the user rather than guessing
+
+### Pre-PR self-review checklist (recurring mistake catcher)
+
+These rules exist because past PRs surfaced the same classes of bug
+again and again in CodeRabbit / Copilot bot review. Run this checklist
+mentally before every `gh pr create` or `git push` that opens a PR.
+
+**macOS shell scripts** (every `.sh` we ship):
+
+- macOS ships **bash 3.2**. No associative arrays (`declare -A`), no
+  `${var,,}` lowercase, no `mapfile` / `readarray`. Use `case`
+  statements and `while read` loops. The CI runner has bash 5, the
+  maintainer's Mac does not — the local run is the one that breaks.
+- `set -euo pipefail` at the top of every script. Empty/unset
+  variable references should fail loud, not silently expand to "".
+- Any pipeline that produces a build artifact: verify with
+  `[[ -s "$out" ]]` *after* the pipeline. `pipefail` catches process
+  exit codes but a disk-full `tar | zstd` can still emit a zero-byte
+  file with exit 0.
+- `rsync --delete <src>/ <dst>/` will wipe anything in `<dst>/` not in
+  `<src>/`. If `<dst>/` is shared with another stage (overlay, sign,
+  bundle), add `--exclude=<that-subtree>` and **leave a code comment
+  explaining why**.
+- Never `pkill -f <pattern>` to clean up. It will SIGKILL processes
+  belonging to other Wine instances the user has running. Use
+  `wineserver -k` against the specific `$WINEPREFIX` instead.
+- `awk` injection / substitution scripts must set a sentinel and exit
+  non-zero from `END` if the sentinel was never tripped. Otherwise a
+  silent no-op pretends to succeed and the log line lies.
+- When parsing `diff -u` output, `+++ b/<path>` headers commonly carry
+  a trailing tab + timestamp. Trim with
+  `path="${path%%$'\t'*}"` before using.
+
+**macOS dyld / Mach-O** (anything we ship as `.dylib` or `.framework`):
+
+- Every dylib bundled into `out/engine/` must be audited with
+  `otool -L` and must have **zero** `/usr/local/...` references.
+  Rewrite via `install_name_tool -id @rpath/<base>` +
+  `install_name_tool -change /usr/local/... @loader_path/<base>`.
+  Verify with a post-rewrite `otool -L | grep /usr/local` that fails
+  the script if any leak remains.
+- `install_name_tool` invalidates ad-hoc signatures. Sequence is
+  always: build → bundle/overlay → install_name_tool → sign. Never
+  the other way around.
+- Don't rely on `DYLD_FALLBACK_LIBRARY_PATH` basename-fallback as the
+  *only* resolution strategy. Apple has narrowed dyld policy several
+  times. Bundle should resolve via `@loader_path` for inter-bundle
+  refs; env-var fallback is only for Wine's own `dlopen`-by-SONAME.
+- macOS code-sign needs `--force --deep --sign - --options runtime`
+  for ad-hoc signing, plus the Wine entitlements (JIT, dyld env,
+  lib-validation disabled). Re-running `sign-engine.sh` is idempotent
+  and required after any post-build mutation.
+
+**Spec-traceability** (every test we write):
+
+- Test for `A(N).x` MUST quote the criterion verbatim in a comment
+  above the assertion. If `A1.2` says "system.reg contains
+  `#arch=win64`", the test reads
+  `grep -Fq '#arch=win64' "$PFX/system.reg"` and the comment above
+  cites `# SPECS A1.2: prefix is win64 (system.reg has #arch=win64)`.
+  No "substring of one of these patterns" looseness. If you cannot
+  write a tight assertion, the test is not yet implementable — mark
+  it SKIP with the deferred-phase reason.
+- "Process is alive 6 seconds later" is **not** evidence of UI
+  rendering. Headless / black-window failures pass that. Either do a
+  real screenshot+NCC assertion or mark the criterion SKIP.
+- Missing comparison corpus (`A1.5` without CrossOver installed) is
+  SKIP, not PASS. Use a distinct exit code from the inner script and
+  let the caller print SKIP.
+
+**Provenance & supply chain**:
+
+- Every external file we ingest must be sha256-pinned in
+  `versions.json` and verified at fetch time. The one exception is
+  the Apple GPTK DMG, which is gated behind Apple ID login —
+  document that exception explicitly each time it comes up.
+- GitHub Actions: `actions/checkout@v4` needs `persist-credentials:
+  false` when the workflow doesn't push. Pinning actions to commit
+  SHAs is deferred to Phase 5's supply-chain hardening pass; track
+  it there, not piecemeal.
+- Any new external URL referenced in code or docs must be hit at
+  least once before the commit to confirm it 200s.
+
+**Docs**:
+
+- Every fenced code block has a language tag (`bash`, `text`, `json`,
+  ...). markdownlint MD040 fails the lint workflow without it.
+- No broken links. If a referenced file doesn't exist yet, either
+  create a placeholder or remove the markdown link syntax (plain text
+  is fine).
+- ADR file names: `NNNN-kebab-title.md`, monotonic. When superseding
+  an ADR, **delete the old file** and reference the topic in the new
+  one's `Context` — never leave "Superseded by …" stubs.
+
+**Before you push the PR**:
+
+1. `shellcheck scripts/*.sh` — must be clean (Phase 1.5 lint workflow
+   enforces this on push).
+2. `markdownlint docs/**/*.md` — same.
+3. `git diff --stat` reviewed — no unrelated changes snuck in.
+4. Every claim in the PR description traces to a commit, ADR, or
+   acceptance criterion. No prose-only assertions.
+5. If the PR touches anything in the bullet lists above, name the
+   bullet you complied with in the commit message body. Makes
+   bot-review delta visible.
 
 ---
 

@@ -117,5 +117,21 @@ rsync -a --delete "$INSTALL/bin/"  "$OUT/bin/"
 rsync -a --delete --exclude=external "$INSTALL/lib/"  "$OUT/lib/"
 rsync -a --delete "$INSTALL/share/" "$OUT/share/"
 
+# --- install calimocho-wine wrapper ---
+# The wrapper bakes in WINEDLLOVERRIDES, DYLD_FALLBACK_LIBRARY_PATH,
+# WINEDEBUG. It's the canonical entry point — Phase 2 Calimocho.app
+# calls this, not `bin/wine` directly. See A1.5.10 in PHASES.md.
+log "installing calimocho-wine wrapper into out/engine/bin/"
+cp "$REPO_ROOT/bin/calimocho-wine" "$OUT/bin/calimocho-wine"
+chmod +x "$OUT/bin/calimocho-wine"
+
+# --- bundle runtime dylibs ---
+# Wine dlopens libfreetype/libgnutls/etc. at runtime. bundle-deps.sh
+# copies them and their transitive closure into lib/external/runtime/
+# so the engine is self-contained (works on Macs without Homebrew).
+# See A1.5.9 in PHASES.md.
+log "bundling runtime dylibs (libfreetype, libgnutls, ...)"
+SRC_LIBDIR="${BREW_PREFIX}/lib" "$REPO_ROOT/scripts/bundle-deps.sh" >>"$LOG" 2>&1
+
 log "done — engine staged at $OUT"
-log "  $($OUT/bin/wine --version 2>&1 | head -1)"
+log "  $("$OUT"/bin/wine --version 2>&1 | head -1)"

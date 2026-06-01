@@ -23,7 +23,7 @@ Icon: 🍷 (16×16 template image, monochrome, follows menubar tint)
 
 Click → dropdown menu (the ONE visible action):
 
-```
+```text
    🍷 Calimocho v1.0.0
 
    ▶ Open Steam for Windows
@@ -50,7 +50,7 @@ That is the entire menu in normal mode. Three lines.
 Reveals the power-user menu. macOS convention; users discover it once
 they need it.
 
-```
+```text
    🍷 Calimocho v1.0.0 (debug menu)
 
    ▶ Open Steam for Windows
@@ -105,7 +105,7 @@ Shown once, when Calimocho.app launches and finds no Steam bottle.
 
 ### Step 1: Welcome
 
-```
+```text
    ╭────────────────────────────────────────────────────────╮
    │ 🍷                                                     │
    │                                                        │
@@ -134,7 +134,7 @@ the homage before they see any feature.
 
 ### Step 2: System check
 
-```
+```text
    ╭────────────────────────────────────────────────────────╮
    │ System check                                           │
    │                                                        │
@@ -151,7 +151,7 @@ the homage before they see any feature.
 
 If something fails:
 
-```
+```text
    ✗ Only 8 GB free (need at least 20 GB)
      [Open Storage Settings]
 ```
@@ -160,7 +160,7 @@ Wizard does not let the user continue until criteria are met.
 
 ### Step 3: Install Steam
 
-```
+```text
    ╭────────────────────────────────────────────────────────╮
    │ Install Steam                                          │
    │                                                        │
@@ -184,7 +184,7 @@ Wizard does not let the user continue until criteria are met.
 
 ### Step 4: Progress
 
-```
+```text
    ╭────────────────────────────────────────────────────────╮
    │ Installing Steam                                       │
    │                                                        │
@@ -201,7 +201,7 @@ Wizard does not let the user continue until criteria are met.
 
 ### Step 5: Done
 
-```
+```text
    ╭────────────────────────────────────────────────────────╮
    │ ✓ Steam is installed.                                  │
    │                                                        │
@@ -223,7 +223,7 @@ Steam appears. Future launches use the menubar icon.
 
 Standard macOS About panel (NSAboutWindow), with:
 
-```
+```text
    🍷
    Calimocho
    v1.0.0 (engine: Wine 11.0 + GPTK 3.0)
@@ -254,7 +254,7 @@ zip and opens it in Finder.
 
 Example:
 
-```
+```text
    ╭──────────────────────────────────────────────╮
    │  ⚠ Steam can't start                         │
    │                                              │

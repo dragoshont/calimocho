@@ -1,0 +1,100 @@
+# calimocho lint workflow
+#
+# Cheap, fast checks that run on every push to every branch. Brought
+# forward from Phase 5 because PR #1 and PR #2 review caught a cluster
+# of shell/markdown/YAML issues that all three of these linters would
+# have surfaced pre-PR.
+#
+# Distinct from build.yml (which runs the full ~30-min engine pipeline
+# and is gated to main + PRs to main). This one is ~30 seconds and
+# safe on every WIP push.
+
+name: lint
+
+on:
+  push:
+    branches-ignore:
+      - 'gh-pages'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install shellcheck
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+      - name: Run shellcheck on every script we ship
+        run: |
+          set -euo pipefail
+          # SC1091: don't try to follow sourced files; not all source
+          #         paths exist on the linter (e.g. /usr/local/...).
+          # SC2155: declare-and-assign warnings are stylistic noise here.
+          fail=0
+          for f in scripts/*.sh bin/calimocho-wine bin/calimocho; do
+            [[ -f "$f" ]] || continue
+            echo "==> $f"
+            shellcheck -x -e SC1091,SC2155 "$f" || fail=1
+          done
+          exit "$fail"
+
+  markdownlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install markdownlint-cli2
+        run: npm install -g markdownlint-cli2@0.13.0
+      - name: Run markdownlint
+        run: |
+          set -euo pipefail
+          markdownlint-cli2 \
+            "**/*.md" \
+            "#node_modules" \
+            "#build" \
+            "#out"
+
+  yamllint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install yamllint
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq yamllint
+      - name: Run yamllint on every workflow + repo YAML
+        run: |
+          set -euo pipefail
+          yamllint -d '{extends: relaxed, rules: {line-length: {max: 200}}}' \
+            .github/workflows/
+
+  versions-json-schema:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate versions.json is valid JSON + has required keys
+        run: |
+          set -euo pipefail
+          jq empty versions.json
+          # Required top-level keys per ADR-0011 (single source of truth).
+          for key in cx_sources gptk_redist whisky; do
+            jq -e ".${key}" versions.json >/dev/null \
+              || { echo "ERROR: versions.json missing top-level key: $key"; exit 1; }
+          done
+          # cx_sources and gptk_redist must have url + sha256 pins.
+          for key in cx_sources gptk_redist; do
+            jq -e ".${key}.url"    versions.json >/dev/null \
+              || { echo "ERROR: versions.json: ${key}.url missing"; exit 1; }
+            jq -e ".${key}.sha256" versions.json >/dev/null \
+              || { echo "ERROR: versions.json: ${key}.sha256 missing"; exit 1; }
+          done
+          echo "versions.json: schema ok"

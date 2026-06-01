@@ -129,7 +129,7 @@ The same GPTK Redistributables tarball that CI consumes also ships
 **pre-bundled inside `Calimocho.app`** when Phase 4 produces the DMG.
 Concretely, the DMG layout is:
 
-```
+```text
 Calimocho-vX.Y.Z.dmg
 └── Calimocho.app/
     └── Contents/

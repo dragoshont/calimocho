@@ -70,7 +70,8 @@ if [[ ! -d "$ROOT/sources/wine" ]]; then
   # in a 2026 release moved to $ROOT/sources/sources/wine. Detect and
   # normalize to $ROOT/sources/wine so build-wine.sh's default SRC works.
   if [[ ! -d "$ROOT/sources/wine" ]]; then
-    detected_wine="$(find "$ROOT/sources" -maxdepth 4 -name configure.ac -path '*/wine/*' -print -quit | xargs -I{} dirname {} 2>/dev/null || true)"
+    detected_cfg="$(find "$ROOT/sources" -maxdepth 4 -name configure.ac -path '*/wine/*' -print -quit 2>/dev/null || true)"
+    detected_wine="${detected_cfg:+$(dirname "$detected_cfg")}"
     if [[ -z "$detected_wine" || ! -d "$detected_wine" ]]; then
       log "ERROR: wine source directory not found after extraction"
       exit 1
