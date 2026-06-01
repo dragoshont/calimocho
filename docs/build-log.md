@@ -575,3 +575,123 @@ shim DLLs copied from the engine.
   (Experiment A) for production use as diagnostic levers
 - `docs/ADR/0016-dxgi-shim-required-for-cef.md`: extended with
   four-experiment evidence chain
+
+## 2026-06-01 (cont'd) — Phase 3 session 3: Tests D + E + PK reality check
+
+### Test D — Steam CEF with GPU disabled
+
+Hypothesis: Steam CEF has a CPU/SwiftShader fallback that
+bypasses our D3D11 path entirely.
+
+Three flag variants attempted: `-cef-disable-d3d11`,
+`-cef-disable-gpu`, `-cef-force-d3d9`, `-cef-force-software`,
+also `WINEDLLOVERRIDES=d3d11,dxgi=` to disable both.
+
+Bootstrap log shows Steam **received** the flags
+(`Steam Client launched with: ... -cef-disable-d3d11 -cef-disable-gpu`)
+but webhelper still spawns `--type=gpu-process` and CEF still
+tries D3D11. None of those flags actually proxy through to
+steamwebhelper's CEF command line.
+
+Disabling DLLs entirely produces 6+ GPU process crashes
+(`exit_code=-2147483645`); CEF has no usable SwiftShader fallback
+in Steam's build. **Test D: no escape via flags.**
+
+### Test E — SN2 shipping exe directly, bypassing Steam UI
+
+Hypothesis: SN2 talks D3D11 directly (not through CEF). If our
+shim works for direct D3D11 callers (Tier-1 passes), SN2 might
+play even if Steam UI is black.
+
+Launched
+`Subnautica2/Binaries/Win64/Subnautica2-Win64-Shipping.exe`
+directly from CrossOver's existing SN2 install via our
+calimocho-wine. MoltenVK created `WineMetalView` swap chain
+images at 705×440. Shim log:
+
+```text
+create_device: ENTER adapter=0x2fa2b0 driver_type=0
+                levels_count=5 sdk_version=7
+create_device: about to call D3DMetal CreateDevice@0x2159bfea8
+                adapter=0x2fa2b0 driver=0
+(no RETURN line)
+```
+
+**Same failure mode as Steam.** D3DMetal hangs on the non-NULL
+wined3d-backed adapter pointer. SN2 in `Subnautica2.exe` launcher
+exits silently. **Test E: SN2 alone doesn't escape the shim
+problem.** Strong reinforcement of ADR-0016 — adapter coherence
+is required end-to-end for both CEF and UE5.
+
+### PK reality check — measured 2026-06-01
+
+User pointed out two PK Steambuild apps are installed locally.
+We measured both — and this changes the strategic picture.
+
+**Steambuild 32 64bit DXVK.app:**
+
+```text
+Wine version:          10.0 Sikarugir  (gcenx-built, not Wine 11)
+bottle d3d11.dll:      3.9 MB, strings: "DXVK adapter", "DxvkCommandList"
+                       = DXVK 2.x PE binaries (MIT FOSS, not D3DMetal)
+bottle dxgi.dll:       237 KB, DXVK companion
+DLL override:          *d3d11=native,builtin  (DXVK wins)
+Info.plist envs:       D3DMETAL=0 D3DMETAL_FORCE=0 MOLTENVKCX=1
+                       VK_ICD_FILENAMES=/opt/homebrew/opt/molten-vk/.../MoltenVK_icd.json
+                       VKD3D_CONFIG=force_static_cbv VKD3D_FEATURE_LEVEL=12_2
+Registry [Software\Wine\Direct3D]:
+                       csmt=1, renderer="gl", VideoMemorySize=65536
+lib/external/:         (no D3DMetal.framework, no libd3dshared.dylib)
+```
+
+**Steambuild 32 64bit Direct3D.app:**
+
+Similar but `D3DMETAL_FORCE=1`. Two PK variants representing the
+two routes: DXVK (FOSS, default) and D3DMetal (proprietary, alt).
+
+**Live test:** Launched the DXVK variant. Steam UI rendered
+correctly. User confirmed: their login active, SN2 already
+appears installed. No GPU process crashes. No black window.
+
+### What this corrects
+
+ADR-0015's audit (session 1) claimed "most of the integration
+chain is already in CodeWeavers' source" and chose D3DMetal-
+forwarding as the obvious path. The premise was unmeasured: I
+assumed every working macOS Wine stack used D3DMetal, because
+CrossOver's `d3d11.so` ships under that name and Apple's GPTK
+ships D3DMetal too.
+
+The measured reality:
+
+- **PK uses DXVK 2.x, not D3DMetal.** Wine 10, not Wine 11.
+- **No CW HACK 22434 env var.** No libd3dshared. No D3DMetal load.
+- **It just works** on this exact hardware running today's
+  macOS and today's Steam.
+- The only entrants we know that *require* D3DMetal are
+  CrossOver (proprietary) and PK's "Direct3D" variant (which is
+  optional). Whisky used Wine 7 + D3DMetal and is too old. GPTK
+  is Wine 7 + D3DMetal and CEF needs Wine 9+, so GPTK alone
+  doesn't work for Steam either.
+
+So calimocho's whole D3DMetal direction was built on a wrong
+premise about what "the FOSS Mac Wine ecosystem" actually does.
+The right answer is **DXVK + Wine 10 + MoltenVK**, not
+**Wine 11 + D3DMetal shim**.
+
+### Decision
+
+ADR-0018 (proposed) documents the pivot: drop D3DMetal shim work,
+adopt PK-style stack. Open question gating acceptance: does PK +
+SN2 recipe (vcrun2022 + UE4SS proxy + Sentry hack + AVX + Win11)
+actually run SN2 in-game, or does PK get stuck at the same wall
+beyond Steam UI?
+
+**Next test (continuing this session):** symlink CrossOver's
+existing SN2 install into PK's bottle (no 15 GB redownload),
+run PK winetricks vcrun2022, launch SN2 via PK Steam, observe.
+
+### Files changed this session 3
+
+- `docs/ADR/0018-pivot-to-dxvk-wine10-foss-stack-proposal.md`: new (Proposed status)
+- `docs/build-log.md`: this entry
