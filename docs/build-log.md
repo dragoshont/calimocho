@@ -695,3 +695,109 @@ run PK winetricks vcrun2022, launch SN2 via PK Steam, observe.
 
 - `docs/ADR/0018-pivot-to-dxvk-wine10-foss-stack-proposal.md`: new (Proposed status)
 - `docs/build-log.md`: this entry
+
+## 2026-06-01 (cont'd) — Phase 3 session 4: PK SN2 tests close the question
+
+### Symlinked CrossOver's SN2 install into PK bottles
+
+15 GB SN2 install lives at
+`~/Library/Application Support/CrossOver/Bottles/Steam/.../Subnautica2`.
+PK bottles symlink it in to avoid redownload. Test only; both PK
+bottles restored to original state at session end.
+
+### Test E.1 — SN2 via PK DXVK variant (vkd3d-proton + MoltenVK)
+
+Launched Steam UI → Library → SN2 Play. SN2 launched
+(vcrun runtime present), reached RHI init, then:
+
+```text
+LogRHI: Using Default RHI: D3D12
+LogRHI: Using Highest Feature Level of D3D12: SM6
+LogD3D12RHI: D3D12CreateDevice failed with code 0x80070057  (E_INVALIDARG)
+LogD3D12RHI: Failed to choose a D3D12 Adapter
+LogD3D12RHI: Adapter was not found
+LogRHI: RHI D3D12 is not supported on your system
+Message dialog: "DirectX 12 is not supported on your system."
+HandleUnsupportedRHI.D3D12 -> RequestExitWithStatus(1)
+```
+
+Then UE5 CrashReportClient popped up. Confirmed via screenshot
+that **regular Win32 desktop windows render correctly under
+PK** — the black-window class is D3D11/CEF-specific, not a
+Wine-level rendering bug.
+
+### Test E.2 — `-dx11` override
+
+UE5 normally accepts `-dx11` to force the D3D11 RHI. SN2 shipping
+build crashed instead with:
+
+```text
+Fatal error: Unable to launch with RHI 'D3D11' since the project
+is not configured to support it.
+```
+
+**SN2's UE5 build was packaged without the D3D11 RHI module**.
+There is no client-side workaround; SN2 is D3D12-only on Windows.
+
+### Test E.3 — SN2 via PK Direct3D variant (Apple D3DMetal d3d12)
+
+PK ships a second app ("Steambuild 32 64bit Direct3D") that sets
+`D3DMETAL_FORCE=1`. This routes D3D12 through Apple's
+D3DMetal.framework instead of vkd3d-proton. Bypassed Steam's vcrun
+prompt by launching `Subnautica2-Win64-Shipping.exe` directly via
+the bottle's wine64.
+
+```text
+LogD3D12RHI: D3D12CreateDevice failed with code 0x80004005  (E_FAIL)
+LogD3D12RHI: DirectX Agility SDK runtime not found
+LogD3D12RHI: Failed to choose a D3D12 Adapter
+LogRHI: RHI D3D12 is not supported on your system
+```
+
+Different error code (E_FAIL vs E_INVALIDARG) confirms the
+D3DMetal path was taken, but D3DMetal's d3d12 implementation
+also can't produce an adapter that satisfies UE5/SM6.
+
+### Verdict: SN2 on M1 Max via any FOSS-or-FOSS-adjacent stack
+
+| Stack | Steam UI | SN2 in-game |
+|---|---|---|
+| CrossOver 26 (proprietary `d3d12.so`) | works | works (with recipe) |
+| PK DXVK + vkd3d-proton + MoltenVK | works | D3D12 0x80070057 |
+| PK Direct3D + Apple D3DMetal | works | D3D12 0x80004005 |
+| calimocho any tested config | black | not reached |
+
+**No FOSS-only path on M1 Max produces a D3D12 adapter that UE5
+SM6 accepts today.** CrossOver does something proprietary in their
+`d3d12.so` that nobody in the public FOSS ecosystem has reproduced.
+
+### What this splits the project into
+
+**P1 — Steam UI (achievable today via DXVK pivot):**
+
+PK proves Wine 10 + DXVK 2.x + MoltenVK + `renderer=gl` renders
+Steam UI on this hardware. Calimocho can adopt this for the
+engine layer. ADR-0018 (Proposed) is the pivot blueprint for
+this layer; it would close SPECS A1.4 / A2.4 / Issue #4 for the
+Steam-browsing experience.
+
+**P2 — SN2 in-game (upstream-blocked, ADR-0017 known-blocker):**
+
+D3D12 on Apple Silicon for UE5 SM6 games is not solved outside
+CrossOver. Not narrowly leadable per ADR-0017 — this is upstream
+vkd3d-proton + MoltenVK work, beyond a Phase 3 calimocho task.
+
+### Honesty per AGENTS rule #4
+
+A calimocho that closes P1 but not P2 ships "you can see your
+Steam library, but you can't play the game" — which the README
+decision table can honestly state ("for SN2 itself, buy
+CrossOver"). That is the ADR-0017 known-blocker form of honesty.
+Whether to ship P1 alone is a separate strategic call (in
+discussion).
+
+### Files changed this session 4
+
+- `docs/build-log.md`: this entry
+- (No code or other doc changes; PK bottles restored to original
+  state, no calimocho-side state touched)
