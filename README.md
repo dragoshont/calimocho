@@ -192,7 +192,7 @@ under Rosetta 2 — see [ADR-0010](docs/ADR/0010-host-arch-x86_64-rosetta.md).
 git clone https://github.com/dragoshont/calimocho.git
 cd calimocho
 scripts/prep-build-deps.sh        # Rosetta 2 + x86_64 Homebrew + Wine deps
-scripts/fetch-sources.sh          # CodeWeavers Wine 11 tarball (sha256 pinned)
+scripts/fetch-sources.sh          # CodeWeavers Wine 11 + GPTK Redist (sha256 pinned, both)
 scripts/patch-sources.sh          # apply calimocho patches (see patches/wine/)
 scripts/build-wine.sh             # configure + make + install (~20 min)
 scripts/overlay-gptk.sh           # copy Apple GPTK D3DMetal into out/engine/
@@ -200,6 +200,13 @@ scripts/sign-engine.sh            # ad-hoc sign every Mach-O with Wine entitleme
 scripts/test-engine.sh            # verify A1.1, A1.2, A1.3, A1.5
 out/engine/bin/wine notepad.exe   # try it
 ```
+
+`scripts/fetch-sources.sh` downloads two artifacts: CodeWeavers' LGPL
+Wine 11 source tarball from `media.codeweavers.com`, and calimocho's
+re-packaged Apple GPTK Redistributables from GitHub Releases. Both are
+sha256-pinned via [versions.json](versions.json). The GPTK
+re-distribution is permitted by the Apple GPTK SLA §2A(iii) and §2C —
+see [ADR-0011](docs/ADR/0011-ci-and-gptk-redistribution.md).
 
 Build artifacts live under `out/engine/` (gitignored). All A1.x acceptance
 criteria are documented in [docs/SPECS.md](docs/SPECS.md).

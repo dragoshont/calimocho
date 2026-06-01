@@ -154,7 +154,7 @@ signed, runs under Rosetta 2 on Apple Silicon. ~140 MB.
 
 ### Configure flags (final, x86_64)
 
-```
+```bash
 ./configure
   --prefix=$BUILD_DIR/_install
   --enable-archs=x86_64,i386

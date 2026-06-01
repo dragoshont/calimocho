@@ -12,6 +12,7 @@
 |---|---|---|---|
 | **0** | Foundation | Repo, docs, rules, license, build deps. Reproducible source download with sha256 pin. | `git clone` works. `docs/PLAN.md` is current. `scripts/fetch-sources.sh` produces a verified Wine source tarball. |
 | **1** | Engine | Build CodeWeavers Wine 11 from source. CLI-only validation: `wine notepad.exe` shows a window. `wine steam.exe` reaches the Steam login UI. No GUI yet. | Maintainer runs `./scripts/build-wine.sh`, then `./scripts/test-engine.sh`, sees Steam login window without black-window bug. |
+| **1.5** | CI + GPTK re-hosting | GitHub Actions build pipeline; calimocho-hosted GPTK Redistributables tarball; `versions.json` as single source of truth. Brought forward from Phase 5 per ADR-0011. | Push to any branch runs full pipeline; first PR run on `phase1-engine` passes A1.1–A1.5 end-to-end in CI. |
 | **2** | App shell | `Calimocho.app` exists. Menubar item + first-run wizard. Wraps the Phase 1 engine. Manually installed (drag to /Applications; no DMG yet). | Maintainer opens Calimocho.app, clicks "Install Steam", clicks "Launch", sees Steam login window inside the app's launcher. |
 | **3** | Game | Subnautica 2 installs from inside Calimocho's Steam, launches, plays. Mods (UE4SS + console commands) installed via Calimocho's bottle config. | Maintainer plays SN2 for 30+ minutes from a single Calimocho.app launch. |
 | **4** | Packaging | DMG installer with Calimocho.app inside. Ad-hoc signed. Sigstore signature alongside the DMG. README with screenshots. | A clean M-series Mac downloads the DMG, drags Calimocho.app to /Applications, completes wizard, plays SN2, following only the README. |
@@ -67,12 +68,43 @@ Summary:
 - No Calimocho.app
 - No GUI of any kind
 - No second bottle, no second game
-- No CI
+- ~~No CI~~ — **moved up to Phase 1.5** per [ADR-0011](ADR/0011-ci-and-gptk-redistribution.md)
+
+## Phase 1.5: CI + GPTK re-hosting (added 2026-06-01)
+
+Added per [ADR-0011](ADR/0011-ci-and-gptk-redistribution.md) after PR #1
+adversarial review found that script bugs catchable by deterministic
+CI were slipping through manual verification. CI work originally
+scoped to Phase 5; only the build pipeline portion is brought forward
+here. Phase 5 still owns release.yml, auto-update, visual regression
+baselines, multi-OS test matrix.
+
+### Acceptance criteria
+
+- A1.5.1 `versions.json` exists at repo root, lists `cx_sources` and
+  `gptk_redist` with `url` + `sha256` for each.
+- A1.5.2 `scripts/package-gptk-redist.sh` produces a deterministic
+  `gptk-redist-<version>-<repack>.tar.zst` containing
+  `D3DMetal.framework`, `libd3dshared.dylib`, `License.rtf`, and a
+  per-repack `README.md`. The tarball is uploaded to a GitHub Release
+  on `dragoshont/calimocho` under tag `gptk-redist-<version>-<repack>`.
+- A1.5.3 `scripts/fetch-sources.sh` reads `versions.json` and downloads
+  both upstream artifacts with sha256 verification. Works with no
+  local DMG, no Apple ID.
+- A1.5.4 `scripts/overlay-gptk.sh` prefers the fetched tarball, falls
+  back to mounted DMG only for maintainer iteration.
+- A1.5.5 `.github/workflows/build.yml` runs on every push and PR.
+  Executes prep-build-deps → fetch → patch → build → overlay → sign →
+  test. Wall time ≤ 60 min cold, ≤ 15 min cached. Fails the PR on any
+  A1.x FAIL.
+- A1.5.6 `THIRDPARTY/Apple-GPTK/License.rtf` exists at repo root,
+  populated by `overlay-gptk.sh` (per GPTK SLA §2A "include all
+  copyright notices").
+- A1.5.7 First CI run on `phase1-engine` branch passes end-to-end.
 
 ### Phase 1.5 followups (carried into Phase 2)
 
-These were intentionally deferred from Phase 1 close. Phase 2 cannot
-close until each is addressed:
+These remain deferred. Phase 2 cannot close until each is addressed:
 
 - **A1.4 Steam login** — deferred because it requires a Steam-installed
   bottle, which is the Phase 2 wizard's "Install Steam" deliverable.
@@ -92,10 +124,9 @@ close until each is addressed:
   ≥ 0.85 against `tests/visual/baseline/notepad-window.png`. The
   baseline image and the Tier 3 harness are Phase 5 deliverables; A1.3
   upgrades from PARTIAL to FULL pass when that lands.
-- **A1.5 against a real CrossOver install** — A1.5 today only
-  trivially passes (CrossOver not installed on this machine). The
-  CI matrix (Phase 5) will run A1.5 on a runner with CrossOver Trial
-  installed to do a real sha256 comparison.
+- **A1.5 against a real CrossOver install** — A1.5 today SKIPs when
+  CrossOver isn't installed. The Phase 5 CI matrix will run A1.5 on a
+  runner with CrossOver Trial installed to do a real sha256 comparison.
 - **`fixup-config-h.sh` version literal** — currently hardcodes
   `PACKAGE_VERSION "11.0"`. Should read the `VERSION` file from the
   source tree. Owned by next CodeWeavers source bump.
@@ -314,10 +345,11 @@ for any reason, same procedure but trigger is different.
 |---|---|---|---|
 | 0 Foundation | DONE | 2026-05-30 | 2026-05-31 |
 | 1 Engine | DONE | 2026-05-31 | 2026-06-01 (A1.1, A1.2, A1.3, A1.5, A1.6 green; A1.4 deferred to Phase 2/3 — needs Steam-installed bottle) |
+| 1.5 CI + GPTK re-hosting | IN PROGRESS | 2026-06-01 | A1.5.1–A1.5.6 green locally; A1.5.7 pending first green CI run on phase1-engine PR |
 | 2 App shell | NOT STARTED | — | — |
 | 3 Game | NOT STARTED | — | — |
 | 4 Packaging | NOT STARTED | — | — |
-| 5 CI + auto-update | NOT STARTED | — | — |
+| 5 CI + auto-update | scope narrowed → release.yml + Sparkle + visual regression + multi-OS matrix | — | — |
 | 6+ Wishlist | NOT STARTED | — | — |
 | ∞ Archive | not triggered | — | — |
 
