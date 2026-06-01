@@ -1,0 +1,225 @@
+# calimocho upstream watch
+#
+# Weekly check for new releases of the projects we depend on.
+# Opens a GitHub Issue when a new version is detected so the
+# maintainer notices without having to subscribe to RSS feeds.
+#
+# Scope: lives in Phase 1.5 (CI) alongside build.yml, per ADR-0011.
+# The downside of NOT having it — a CodeWeavers source drop or GPTK
+# release going unnoticed for weeks — is real, and the cost of having
+# it is ~150 lines of YAML.
+#
+# Sources monitored (all verified to exist as of 2026-06-01):
+#   - CodeWeavers Wine source (codeweavers.com/crossover/source page,
+#     scraped for the crossover-sources-X.Y.Z.tar.gz filename pattern).
+#     There is no API. The HTML format is stable enough; if the regex
+#     stops matching we open an "upstream-watch-broken" Issue.
+#   - Apple GPTK (Gcenx/game-porting-toolkit GitHub releases —
+#     gcenx repacks each Apple GPTK release within 24h, so the latest
+#     tag there is the latest Apple release). We still use Apple's
+#     own DMG as the source of D3DMetal in our build; gcenx is the
+#     notification signal only.
+#   - Whisky (Whisky-App/Whisky repo's `archived` field). AGENTS
+#     rule #3 says if Whisky un-archives, calimocho repositions or
+#     archives. So the watcher fires on un-archive specifically.
+#
+# Failure modes handled:
+#   - Upstream HTTP non-2xx / network error  -> upstream-watch-broken Issue
+#   - CodeWeavers regex no longer matches    -> upstream-watch-broken Issue
+#   - GitHub API rate limit                   -> upstream-watch-broken Issue
+#   - Issue with that exact title already
+#     exists (open or closed)                -> skip (no dup spam)
+
+name: upstream-watch
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Monday 09:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: upstream-watch
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check upstream releases
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout (versions.json only)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            versions.json
+          sparse-checkout-cone-mode: false
+
+      - name: Read current pins from versions.json
+        id: pins
+        run: |
+          set -euo pipefail
+          if [[ ! -f versions.json ]]; then
+            echo "ERROR: versions.json missing" >&2
+            exit 1
+          fi
+          cx_pinned=$(jq -r '.cx_sources.crossover_release // empty' versions.json)
+          gptk_pinned=$(jq -r '.gptk_redist.gcenx_upstream_tag // empty' versions.json)
+          whisky_expected_archived=$(jq -r '.whisky.expected_archived // true' versions.json)
+          if [[ -z "$cx_pinned" || -z "$gptk_pinned" ]]; then
+            echo "ERROR: versions.json missing cx_sources.crossover_release or gptk_redist.gcenx_upstream_tag" >&2
+            exit 1
+          fi
+          {
+            echo "cx_pinned=$cx_pinned"
+            echo "gptk_pinned=$gptk_pinned"
+            echo "whisky_expected_archived=$whisky_expected_archived"
+          } >>"$GITHUB_OUTPUT"
+          echo "Pinned: cx=$cx_pinned gptk=$gptk_pinned whisky_expected_archived=$whisky_expected_archived"
+
+      # --- CodeWeavers Wine source: scrape codeweavers.com/crossover/source ---
+      - name: Check CodeWeavers Wine source
+        id: cx
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          # Page lists the latest tarball as
+          # "DOWNLOAD FOSS CODE FOR CROSSOVER X.Y.Z" linking to
+          # media.codeweavers.com/pub/.../crossover-sources-X.Y.Z.tar.gz.
+          # Regex matches the filename pattern which is more stable
+          # than the prose ("CROSSOVER X.Y.Z" prose match fails due
+          # to HTML attribute escaping).
+          html=$(curl -sSfL --max-time 20 https://www.codeweavers.com/crossover/source) || {
+            echo "broken=true" >>"$GITHUB_OUTPUT"
+            echo "reason=curl-failed" >>"$GITHUB_OUTPUT"
+            exit 0
+          }
+          latest=$(echo "$html" | grep -oE 'crossover-sources-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz' \
+                                | head -1 \
+                                | sed -E 's/crossover-sources-(.+)\.tar\.gz/\1/')
+          if [[ -z "$latest" ]]; then
+            echo "broken=true" >>"$GITHUB_OUTPUT"
+            echo "reason=regex-no-match" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "latest=$latest" >>"$GITHUB_OUTPUT"
+          echo "CodeWeavers latest: $latest (pinned: ${{ steps.pins.outputs.cx_pinned }})"
+
+      # --- Apple GPTK: gcenx's mirror (real API, real tags) ---
+      - name: Check Apple GPTK (via gcenx mirror)
+        id: gptk
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          latest=$(gh release view --repo Gcenx/game-porting-toolkit --json tagName --jq .tagName 2>/dev/null) || {
+            echo "broken=true" >>"$GITHUB_OUTPUT"
+            echo "reason=gh-api-failed" >>"$GITHUB_OUTPUT"
+            exit 0
+          }
+          if [[ -z "$latest" ]]; then
+            echo "broken=true" >>"$GITHUB_OUTPUT"
+            echo "reason=empty-tag" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "latest=$latest" >>"$GITHUB_OUTPUT"
+          echo "Apple GPTK latest (gcenx tag): $latest (pinned: ${{ steps.pins.outputs.gptk_pinned }})"
+
+      # --- Whisky: check archived status ---
+      - name: Check Whisky (archive status)
+        id: whisky
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          archived=$(gh api repos/Whisky-App/Whisky --jq .archived 2>/dev/null) || {
+            echo "broken=true" >>"$GITHUB_OUTPUT"
+            echo "reason=gh-api-failed" >>"$GITHUB_OUTPUT"
+            exit 0
+          }
+          echo "archived=$archived" >>"$GITHUB_OUTPUT"
+          echo "Whisky archived: $archived (expected: ${{ steps.pins.outputs.whisky_expected_archived }})"
+
+      # --- Open Issues (idempotent: skip if an Issue with that exact
+      #     title already exists, open OR closed) ---
+      - name: Open Issues for new findings
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          maybe_open() {
+            local title="$1" body="$2" label="$3"
+            # Search across all states (open + closed) so we don't
+            # re-open the same Issue every Monday after the maintainer
+            # closes it.
+            local existing
+            existing=$(gh issue list --state all --search "in:title \"$title\"" --json number --jq '.[0].number // empty' 2>/dev/null || echo "")
+            if [[ -n "$existing" ]]; then
+              echo "  skip — issue #$existing already exists: $title"
+              return 0
+            fi
+            echo "  opening: $title"
+            # Best-effort label; if the label doesn't exist yet
+            # (first run), retry without it.
+            gh issue create --title "$title" --body "$body" --label "$label" 2>/dev/null \
+              || gh issue create --title "$title" --body "$body"
+          }
+
+          # ---- CodeWeavers
+          cx_broken="${{ steps.cx.outputs.broken || 'false' }}"
+          cx_latest="${{ steps.cx.outputs.latest || '' }}"
+          cx_pinned="${{ steps.pins.outputs.cx_pinned }}"
+          if [[ "$cx_broken" == "true" ]]; then
+            maybe_open \
+              "upstream-watch: CodeWeavers source check broken (${{ steps.cx.outputs.reason }})" \
+              "Weekly upstream-watch could not determine the latest CodeWeavers Wine source version.\n\n- Reason: \`${{ steps.cx.outputs.reason }}\`\n- Source page: https://www.codeweavers.com/crossover/source\n- Pinned: \`$cx_pinned\`\n\nIf the page format changed, update the regex in \`.github/workflows/upstream-watch.yml\`." \
+              "upstream-watch-broken"
+          elif [[ -n "$cx_latest" && "$cx_latest" != "$cx_pinned" ]]; then
+            maybe_open \
+              "upstream-watch: CodeWeavers Wine source $cx_latest available (pinned $cx_pinned)" \
+              "A new CodeWeavers Wine source drop is available.\n\n- Latest: \`$cx_latest\`\n- Pinned in versions.json: \`$cx_pinned\`\n- Tarball: \`https://media.codeweavers.com/pub/crossover/source/crossover-sources-$cx_latest.tar.gz\`\n- Source page: https://www.codeweavers.com/crossover/source\n\n**Per AGENTS rule #4 lever 5 (intentional release lag), wait 1–2 weeks after CodeWeavers' CrossOver release before bumping calimocho.**\n\nWhen ready:\n1. Download the tarball, \`shasum -a 256\` it.\n2. Update versions.json: bump \`cx_sources.crossover_release\`, \`wine_version\` (if Wine major bumped), \`url\`, \`sha256\`.\n3. Re-run the full build pipeline (CI will do this on the next push)." \
+              "upstream-watch"
+          fi
+
+          # ---- Apple GPTK
+          gptk_broken="${{ steps.gptk.outputs.broken || 'false' }}"
+          gptk_latest="${{ steps.gptk.outputs.latest || '' }}"
+          gptk_pinned="${{ steps.pins.outputs.gptk_pinned }}"
+          if [[ "$gptk_broken" == "true" ]]; then
+            maybe_open \
+              "upstream-watch: Apple GPTK check broken (${{ steps.gptk.outputs.reason }})" \
+              "Weekly upstream-watch could not determine the latest Apple GPTK version.\n\n- Reason: \`${{ steps.gptk.outputs.reason }}\`\n- Source: https://github.com/Gcenx/game-porting-toolkit/releases\n- Apple page: https://developer.apple.com/games/game-porting-toolkit/\n- Pinned: \`$gptk_pinned\`" \
+              "upstream-watch-broken"
+          elif [[ -n "$gptk_latest" && "$gptk_latest" != "$gptk_pinned" ]]; then
+            maybe_open \
+              "upstream-watch: Apple GPTK $gptk_latest available (pinned $gptk_pinned)" \
+              "Apple released a new GPTK (detected via gcenx mirror).\n\n- Latest gcenx tag: \`$gptk_latest\`\n- Pinned in versions.json: \`$gptk_pinned\`\n- Mirror: https://github.com/Gcenx/game-porting-toolkit/releases\n- Apple page: https://developer.apple.com/games/game-porting-toolkit/\n\n**To adopt** (~10 min):\n1. Download the new GPTK DMG from Apple (Apple ID required).\n2. Mount it (and the nested Evaluation environment DMG).\n3. Run \`scripts/package-gptk-redist.sh\` — produces \`out/redist/gptk-redist-<ver>-<repack>.tar.zst\` + sha256.\n4. Create a GitHub Release on this repo, tag \`gptk-redist-<ver>-<repack>\`, upload the tarball as an asset.\n5. Update versions.json: bump \`gptk_redist.{gcenx_upstream_tag,gptk_version,calimocho_repack,url,sha256}\`.\n6. If Apple changed the SLA, replace \`THIRDPARTY/Apple-GPTK/License.rtf\`.\n7. CI will then rebuild." \
+              "upstream-watch"
+          fi
+
+          # ---- Whisky un-archive
+          whisky_broken="${{ steps.whisky.outputs.broken || 'false' }}"
+          whisky_archived="${{ steps.whisky.outputs.archived || '' }}"
+          whisky_expected="${{ steps.pins.outputs.whisky_expected_archived }}"
+          if [[ "$whisky_broken" == "true" ]]; then
+            maybe_open \
+              "upstream-watch: Whisky archive-status check broken (${{ steps.whisky.outputs.reason }})" \
+              "Weekly upstream-watch could not read Whisky-App/Whisky repo metadata.\n\n- Reason: \`${{ steps.whisky.outputs.reason }}\`\n- Repo: https://github.com/Whisky-App/Whisky" \
+              "upstream-watch-broken"
+          elif [[ "$whisky_archived" == "false" && "$whisky_expected" == "true" ]]; then
+            maybe_open \
+              "upstream-watch: Whisky has been UN-ARCHIVED — reposition or archive calimocho" \
+              "Whisky-App/Whisky is no longer archived (was archived May 11, 2025).\n\nAGENTS.md rule #3:\n> If Whisky comes back to active development, we point users there and reposition (or archive).\n\n- Whisky repo: https://github.com/Whisky-App/Whisky\n\n**Action required (within days, per AGENTS rule #3):**\n- [ ] Read Whisky's current release notes — what changed since May 2025?\n- [ ] Decide: reposition calimocho as downstream of Whisky, OR archive calimocho.\n- [ ] Write an ADR documenting the decision.\n- [ ] Update README, AGENTS.md, PHASES.md accordingly.\n- [ ] Bump \`whisky.expected_archived\` in versions.json to \`false\` so this doesn't fire weekly." \
+              "upstream-watch-critical"
+          fi
+
+          echo "upstream-watch done."
