@@ -124,7 +124,7 @@ correctness proof is the SPECS ↔ TESTING ↔ code triangle.
   declares. If the spec is silent, fix the spec first.
 - Error template (CLI + user-facing dialogs), unless the project
   declares its own:
-  ```
+  ```text
   <project>: ERROR <short title>
     Reason: <plain English>
     Fix:    <what to try>

@@ -71,7 +71,8 @@
    - Detect Apple CLT compiler version
 3. **configure** (2 min)
    - Run `~/cxwine-build/sources/wine/configure` with:
-     ```
+
+     ```text
      --prefix=$BUILD_DIR/_install
      --enable-archs=x86_64,i386
      --without-x --disable-tests --with-mingw --with-gnutls

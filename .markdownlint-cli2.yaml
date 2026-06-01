@@ -24,6 +24,14 @@ config:
   # MD024 duplicate headings: ADRs all use Context/Decision/Consequences.
   MD024:
     siblings_only: true
+  # MD034 bare URLs: ADR-0001 and others quote URLs in prose. Real
+  # angle-bracket wrapping would be noise. Disable.
+  MD034: false
+  # MD007 ul-indent: SPECS.md uses nested bullet indentation for
+  # criteria sub-points. Project style.
+  MD007: false
+  # MD004 ul-style: irrelevant stylistic preference (dash vs plus).
+  MD004: false
   # MD040 fenced-code-language: ENFORCED. This was a PR #1 finding.
   MD040: true
   # MD046 code-block-style fenced vs indented: enforce fenced.
