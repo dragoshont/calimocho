@@ -1,0 +1,37 @@
+{
+  "_doc": "Single source of truth for upstream URLs + sha256 pins. Read by scripts/fetch-sources.sh and .github/workflows/upstream-watch.yml.",
+  "cx_sources": {
+    "_doc": "CodeWeavers' LGPL Wine source drop. Published at codeweavers.com/crossover/source.",
+    "crossover_release": "26.1.0",
+    "wine_version": "11.0",
+    "url": "https://media.codeweavers.com/pub/crossover/source/crossover-sources-26.1.0.tar.gz",
+    "sha256": "e4ec87d5821a009dd1f1d2e36ffe2e24b8fcbae9516375ea42f95a16928ab8fa",
+    "license": "LGPL-2.1+",
+    "watch": {
+      "_doc": "upstream-watch.yml scrapes this page and regex-extracts the version next to 'CROSSOVER X.Y.Z'.",
+      "source": "https://www.codeweavers.com/crossover/source",
+      "compare_against": "crossover_release"
+    }
+  },
+  "gptk_redist": {
+    "_doc": "Apple GPTK Redistributables (D3DMetal.framework + libd3dshared.dylib + License.rtf). Re-distributed by calimocho per Apple GPTK SLA section 2A(iii) + 2C — see ADR-0011 and docs/ADR/0005-bundle-gptk-d3dmetal.md.",
+    "gptk_version": "3.0",
+    "gcenx_upstream_tag": "Game-Porting-Toolkit-3.0-3",
+    "calimocho_repack": 1,
+    "url": "https://github.com/dragoshont/calimocho/releases/download/gptk-redist-3.0-1/gptk-redist-3.0-1.tar.zst",
+    "sha256": "e1d4ab4952c93eb99c2f92aaa055e1e852e1434ef2ffc3eece6ec24a6cac77eb",
+    "license": "Apple GPTK SLA (non-commercial)",
+    "watch": {
+      "_doc": "upstream-watch.yml checks gcenx's GPTK packaging repo's latest release tag. gcenx repacks Apple's GPTK shortly after each Apple release, so a new gcenx tag = new Apple release. Calimocho still uses Apple's DMG directly (gcenx is the signal, not the source).",
+      "source": "Gcenx/game-porting-toolkit",
+      "compare_against": "gcenx_upstream_tag"
+    }
+  },
+  "whisky": {
+    "_doc": "Watched for un-archive (AGENTS rule #3 says if Whisky resumes active development, we reposition or archive calimocho).",
+    "_not_a_build_dep": "calimocho does not depend on Whisky at runtime (ADR-0008) — this entry exists only for upstream-watch.yml.",
+    "repo": "Whisky-App/Whisky",
+    "expected_archived": true,
+    "last_known_release": "v2.3.5"
+  }
+}

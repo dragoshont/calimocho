@@ -40,8 +40,14 @@ All completed as of commit `5714053`.
 
 ## Phase 1 acceptance criteria (engine)
 
+> Host arch: x86_64 (runs under Rosetta 2 on Apple Silicon — see
+> [ADR-0010](ADR/0010-host-arch-x86_64-rosetta.md)). Rosetta 2 must
+> be installed on the test machine; `softwareupdate --install-rosetta
+> --agree-to-license` if absent.
+
 A1.1 The built `wine` binary in `out/engine/bin/wine` reports version
-`wine-11.0` when invoked with `--version`. Exit code 0.
+`wine-11.0` when invoked with `--version`. Exit code 0. The binary is
+x86_64 Mach-O (verified with `file`).
 
 A1.2 `out/engine/bin/wine wineboot --init` against a clean WINEPREFIX
 exits 0. The resulting `system.reg` includes a `wineVersion.major = 11`
@@ -96,9 +102,9 @@ Each script:
 │   └── ...
 └── out/engine/           # what eventually becomes Calimocho.app bundled content
     ├── bin/
-    │   ├── wine
+    │   ├── wine                          (x86_64 Mach-O)
     │   ├── wine64 -> wine
-    │   ├── wineserver
+    │   ├── wineserver                    (x86_64 Mach-O)
     │   ├── wineserver64 -> wineserver
     │   └── wineboot -> wine
     ├── lib/
@@ -112,6 +118,9 @@ Each script:
     │       └── libd3dshared.dylib
     └── share/wine/
 ```
+
+All host-side binaries are x86_64 (no `aarch64-unix/`). See
+[ADR-0010](ADR/0010-host-arch-x86_64-rosetta.md) for why.
 
 There is no install target in Phase 1. The engine lives in `out/engine/`
 and is invoked directly. We do not touch Whisky's Libraries folder. We
@@ -336,6 +345,51 @@ responsibility to delete).
 A4.7 README.md install instructions match the exact UX of A4.5. If they
 differ, README is wrong, not the app.
 
+A4.8 **The DMG is self-contained**. `Calimocho.app` ships with the
+full engine and Apple GPTK Redistributables pre-bundled:
+
+```
+Calimocho.app/Contents/Resources/Engine/
+├── bin/wine
+├── lib/wine/{i386-windows,x86_64-windows,x86_64-unix}/
+└── lib/external/
+    ├── D3DMetal.framework/
+    └── libd3dshared.dylib
+Calimocho.app/Contents/Resources/THIRDPARTY/Apple-GPTK/License.rtf
+```
+
+A user installing calimocho does **not** download GPTK separately,
+does **not** need an Apple Developer ID, does **not** wait for
+first-launch lazy downloads. One drag from the DMG to /Applications
+puts everything in place. Verified by:
+
+```bash
+hdiutil attach Calimocho-vX.Y.Z.dmg -nobrowse -quiet
+test -f "/Volumes/Calimocho/Calimocho.app/Contents/Resources/Engine/bin/wine"
+test -d "/Volumes/Calimocho/Calimocho.app/Contents/Resources/Engine/lib/external/D3DMetal.framework"
+test -f "/Volumes/Calimocho/Calimocho.app/Contents/Resources/THIRDPARTY/Apple-GPTK/License.rtf"
+hdiutil detach "/Volumes/Calimocho" -quiet
+```
+
+This matches the distribution model of every shipping Wine-on-Mac
+stack (CrossOver, Whisky) and is permitted by Apple GPTK SLA §2A(iii)
++ §2C — see [ADR-0011](ADR/0011-ci-and-gptk-redistribution.md).
+
+A4.9 DMG size budget: ≤ 250 MB. (Wine engine ~150 MB + GPTK redist
+~16 MB + SwiftUI app ~10 MB + DMG metadata + slack ≈ 200 MB target,
+250 MB hard ceiling. Exceeding the ceiling indicates dead weight
+that needs trimming — e.g. debug symbols, unused locales.)
+
+A4.10 **LGPL written-offer compliance**. The DMG contains
+`Calimocho.app/Contents/Resources/THIRDPARTY/Wine/NOTICE` (verbatim
+copy of `THIRDPARTY/Wine/NOTICE` from the source repo at the matching
+release tag). The About box exposes a "License & attribution" item
+that opens this file. The NOTICE pins the upstream CodeWeavers Wine
+tarball URL + sha256 and links the calimocho release tag whose
+`scripts/patches/` directory holds the in-tree modifications. Phase 5
+`release.yml` blocks publishing if the NOTICE is missing from the
+DMG. See [ADR-0012](ADR/0012-lgpl-written-offer-compliance.md).
+
 ### Phase 4 deliverables
 
 - `scripts/build-dmg.sh` (uses `hdiutil` or `create-dmg`)
@@ -350,6 +404,10 @@ differ, README is wrong, not the app.
 - App Store distribution (never; Wine JIT)
 - Auto-update via Sparkle (Phase 5)
 - Homebrew tap (Phase 5 optional)
+- **Lazy/on-demand GPTK download**. Calimocho explicitly does NOT
+  ask the user to download GPTK at first run (CrossOver and Whisky
+  both pre-bundle it; we match that pattern per A4.8). The legal
+  basis is in ADR-0011.
 
 ---
 

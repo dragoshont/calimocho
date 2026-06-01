@@ -1,0 +1,85 @@
+calimocho — Wine attribution and LGPL written offer
+=====================================================
+
+This product contains a modified version of **Wine 11.0**.
+
+Wine is free software licensed under the GNU Lesser General Public
+License, version 2.1 or (at your option) any later version. The full
+license text is available at:
+
+    https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html
+
+Upstream
+--------
+
+Wine is developed by the Wine project (https://www.winehq.org/). The
+specific source tree calimocho builds from is the LGPL "FOSS code"
+distribution published by CodeWeavers (https://www.codeweavers.com/),
+who back the majority of upstream Wine development on macOS.
+
+The exact upstream tarball used to produce this binary is pinned in
+the calimocho repository at:
+
+    versions.json -> cx_sources.url
+    versions.json -> cx_sources.sha256
+
+You can verify and re-download it with:
+
+    jq -r '.cx_sources.url'    versions.json   # the URL
+    jq -r '.cx_sources.sha256' versions.json   # the expected sha256
+
+Modifications
+-------------
+
+calimocho does not modify Wine source files in-tree. All
+modifications are kept as standalone unified-diff patches under:
+
+    scripts/patches/
+
+in the calimocho git repository, and are applied at build time by
+`scripts/patch-sources.sh`. Each calimocho release tag (vX.Y.Z) in
+git pins the exact patch set that produced that release's binary.
+
+Corresponding source
+--------------------
+
+The complete corresponding source for the Wine portion of this
+binary is, by construction:
+
+    (1) the CodeWeavers tarball at versions.json -> cx_sources.url
+        (verified against versions.json -> cx_sources.sha256), PLUS
+
+    (2) the patches under scripts/patches/ at the calimocho git
+        tag matching this binary release, available at
+        https://github.com/dragoshont/calimocho
+
+This satisfies the "corresponding source" requirement of LGPL §6.
+
+Written offer (LGPL §6(b))
+--------------------------
+
+For any binary release of calimocho, for a period of at least three
+(3) years from the date of that release, the calimocho maintainer
+offers to provide the complete corresponding source code for the
+Wine portion on a physical medium (USB stick, mailed at our cost) to
+anyone who requests it. To request, open an issue at:
+
+    https://github.com/dragoshont/calimocho/issues
+
+with the title "LGPL source request: vX.Y.Z" and a postal address.
+This offer is valid to any third party in possession of the binary.
+
+Other components
+----------------
+
+The Apple Game Porting Toolkit components bundled with calimocho
+(D3DMetal.framework and libd3dshared.dylib) are governed by Apple's
+Game Porting Toolkit Software License Agreement, the text of which
+ships verbatim at:
+
+    THIRDPARTY/Apple-GPTK/License.rtf
+
+The bundled runtime dylibs (FreeType, GnuTLS, libdbus, SDL2, and
+their transitive closure) are attributed in:
+
+    THIRDPARTY/runtime-libs/README.md

@@ -168,7 +168,7 @@ a one-row table. That is the whole supported list.
 
 v1.0 will ship a DMG:
 
-1. Download `Calimocho-vX.Y.Z.dmg` from GitHub Releases.
+1. Download `Calimocho-vX.Y.Z.dmg` from GitHub Releases (~200 MB).
 2. Open the DMG, drag `Calimocho.app` to `/Applications`.
 3. Right-click `Calimocho.app` → Open (one-time Gatekeeper bypass for
    ad-hoc-signed apps; see [troubleshooting.md](docs/troubleshooting.md)).
@@ -176,8 +176,48 @@ v1.0 will ship a DMG:
    Calimocho-owned bottle.
 5. Sign in to Steam, install Subnautica 2, play.
 
+**That is the entire install.** The Wine engine, Apple's GPTK
+D3DMetal framework, and the Apple GPTK SLA license text all ship
+inside the DMG. You do **not** download GPTK from Apple, you do
+**not** need an Apple Developer ID, and there is no first-launch
+lazy download. Drag once, done. This matches how CrossOver and
+Whisky distribute, and is permitted by Apple's GPTK SLA §2A(iii) +
+§2C — see [ADR-0011](docs/ADR/0011-ci-and-gptk-redistribution.md).
+
 **Status**: not shipped yet. Track progress in
 [docs/PHASES.md](docs/PHASES.md) and [docs/build-log.md](docs/build-log.md).
+
+## Build the engine from source (Phase 1, available today)
+
+Phase 1 ships the bare engine — Wine 11 + GPTK D3DMetal, no SwiftUI app
+yet. You invoke `out/engine/bin/wine` directly from a terminal.
+
+Prerequisites: Apple Silicon Mac, macOS 15 or later, Xcode Command Line
+Tools, native arm64 Homebrew at `/opt/homebrew/`. The build is x86_64
+under Rosetta 2 — see [ADR-0010](docs/ADR/0010-host-arch-x86_64-rosetta.md).
+
+```bash
+git clone https://github.com/dragoshont/calimocho.git
+cd calimocho
+scripts/prep-build-deps.sh        # Rosetta 2 + x86_64 Homebrew + Wine deps
+scripts/fetch-sources.sh          # CodeWeavers Wine 11 + GPTK Redist (sha256 pinned, both)
+scripts/patch-sources.sh          # apply calimocho patches (see patches/wine/)
+scripts/build-wine.sh             # configure + make + install (~20 min)
+scripts/overlay-gptk.sh           # copy Apple GPTK D3DMetal into out/engine/
+scripts/sign-engine.sh            # ad-hoc sign every Mach-O with Wine entitlements
+scripts/test-engine.sh            # verify A1.1, A1.2, A1.3, A1.5
+out/engine/bin/wine notepad.exe   # try it
+```
+
+`scripts/fetch-sources.sh` downloads two artifacts: CodeWeavers' LGPL
+Wine 11 source tarball from `media.codeweavers.com`, and calimocho's
+re-packaged Apple GPTK Redistributables from GitHub Releases. Both are
+sha256-pinned via [versions.json](versions.json). The GPTK
+re-distribution is permitted by the Apple GPTK SLA §2A(iii) and §2C —
+see [ADR-0011](docs/ADR/0011-ci-and-gptk-redistribution.md).
+
+Build artifacts live under `out/engine/` (gitignored). All A1.x acceptance
+criteria are documented in [docs/SPECS.md](docs/SPECS.md).
 
 ## Roadmap
 

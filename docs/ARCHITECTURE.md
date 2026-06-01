@@ -24,6 +24,8 @@
 ├─────────────────────────────────────────────────────────────────┤
 │ Layer 2 — Runtime payload (the engine, what we ship)            │
 │   - wine 11.0 (built from CodeWeavers LGPL source)              │
+│     Host arch: **x86_64 only**, runs under Rosetta 2 on Apple   │
+│     Silicon. See ADR-0010.                                      │
 │   - wineserver, wineboot, winecfg (symlinks → wine)             │
 │   - lib/wine/{i386-windows, x86_64-windows, x86_64-unix}/       │
 │   - lib/external/D3DMetal.framework + libd3dshared.dylib        │
@@ -125,11 +127,14 @@ Lives in the repo's working tree only. Never touches /Applications:
 
 ```
 ~/Repo/calimocho/out/engine/
-├── bin/wine
-├── bin/wineserver
-├── lib/wine/{i386-windows,x86_64-windows,x86_64-unix,x86_32on64-unix}/
+├── bin/wine                                  (x86_64 Mach-O)
+├── bin/wineserver                            (x86_64 Mach-O)
+├── lib/wine/{i386-windows,x86_64-windows,x86_64-unix}/
 └── lib/external/D3DMetal.framework
 ```
+
+All engine binaries are **x86_64**. On Apple Silicon they run under
+Rosetta 2 (per ADR-0010). There is no `aarch64-unix/` directory.
 
 Maintainer invokes it directly: `out/engine/bin/wine notepad.exe`.
 
@@ -293,6 +298,7 @@ FirstRunWizard.tapInstall()
 | Failure | Detection | Handling |
 |---|---|---|
 | Brew dep missing during build | `./configure` fails with explicit error | Build script prints "missing dep" hint; CI runs `brew bundle` first |
+| Rosetta 2 missing | Engine binary exits with "Bad CPU type" on Apple Silicon | Phase 2+ wizard offers to run `softwareupdate --install-rosetta --agree-to-license`; CLI prints the same hint |
 | Wine source download corrupted | sha256 mismatch | Re-download once, then fail with clear message |
 | GPTK DMG checksum wrong | sha256 mismatch | Fallback to gcenx repack, sha256 check that too |
 | `EXEEXT` undefined in config.h | First make target fails | `scripts/fixup-config-h.sh` patches `include/config.h`; logged in build-log |
