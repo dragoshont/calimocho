@@ -380,6 +380,16 @@ A4.9 DMG size budget: ≤ 250 MB. (Wine engine ~150 MB + GPTK redist
 250 MB hard ceiling. Exceeding the ceiling indicates dead weight
 that needs trimming — e.g. debug symbols, unused locales.)
 
+A4.10 **LGPL written-offer compliance**. The DMG contains
+`Calimocho.app/Contents/Resources/THIRDPARTY/Wine/NOTICE` (verbatim
+copy of `THIRDPARTY/Wine/NOTICE` from the source repo at the matching
+release tag). The About box exposes a "License & attribution" item
+that opens this file. The NOTICE pins the upstream CodeWeavers Wine
+tarball URL + sha256 and links the calimocho release tag whose
+`scripts/patches/` directory holds the in-tree modifications. Phase 5
+`release.yml` blocks publishing if the NOTICE is missing from the
+DMG. See [ADR-0012](ADR/0012-lgpl-written-offer-compliance.md).
+
 ### Phase 4 deliverables
 
 - `scripts/build-dmg.sh` (uses `hdiutil` or `create-dmg`)
