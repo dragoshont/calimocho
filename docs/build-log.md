@@ -200,3 +200,45 @@ header probes.
 - `patches/wine/0003-rename-wineloader-id.patch`
 - `scripts/wine-entitlements.plist`
 - `scripts/*.sh` (the 9 scripts listed above)
+
+## 2026-06-01 — CW HACK 22434 discovered: CEF GPU crash root cause
+
+Adversarial investigation against installed CrossOver 26.5 to determine
+whether the Steam black-screen issue was (a) a missing config in our
+build or (b) held-back patches in the LGPL release.
+
+Result: **(a) — a missing env var, not held-back patches.**
+
+- `strings(1)` on CrossOver's `ntdll.so` revealed `CX_APPLEGPTK_LIBD3DSHARED_PATH`
+- Same string appears in our compiled `ntdll.so` (proves the patch is in the LGPL release)
+- Wine source `dlls/ntdll/unix/loader.c:1303-1352` (CW HACK 22434) +
+  `dlls/ntdll/unix/unix_private.h:600-624` (CX Hack 23015) read this env var to
+  hook D3DMetal's ms_abi callbacks
+- Without the env var, asm trampolines unconditionally use sysv calling convention
+  → register corruption when D3DMetal calls back into wine
+  → CEF GPU subprocess STATUS_BREAKPOINT (0xC0000005)
+  → 6+ crashes → CEF disables GPU → black window
+
+Fix: `export CX_APPLEGPTK_LIBD3DSHARED_PATH=$ENGINE/lib/external/libd3dshared.dylib`
+in `bin/calimocho-wine`. Documented in [ADR-0013](ADR/0013-cw-hack-22434-d3dshared-env.md).
+
+Also discovered three operational gaps:
+1. `scripts/sign-engine.sh` had never been run after the Wine 11 full-features
+   rebuild — every Mach-O in the engine was unsigned, blocking dylib loads
+   under macOS hardened runtime
+2. `cp` of `libd3dshared.dylib` from `/Applications/Game Porting Toolkit.app/`
+   propagates `com.apple.quarantine` xattr; needs `xattr -c` after copy or
+   `cp -X` to skip xattrs
+3. `bin/calimocho-wine` in the repo and `out/engine/bin/calimocho-wine` are
+   separate files — must be sync'd after every edit (build-app.sh handles this
+   via rsync but ad-hoc edits don't)
+
+Verification:
+- Before fix: 6+ `exit_code=-2147483645` per launch, `variations_crash_streak=6`
+- After fix: 0 crashes, GPU subprocess stays alive, GPU not disabled by CEF
+
+Remaining (NOT this ADR's scope): ANGLE's D3D11 init still fails
+(`Renderer11.cpp:1108 Error querying driver version from DXGI Adapter`)
+causing fallback to GLES 2.0, which is below CEF compositor minimum, so the
+window paints but renders black. Investigating whether DXVK overrides are
+actually applying or if wined3d's DXGI shim needs additional config.

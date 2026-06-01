@@ -82,6 +82,15 @@ export D3DM_ENABLE_METALFX="${D3DM_ENABLE_METALFX-1}"
 export D3DM_SUPPORT_DXR="${D3DM_SUPPORT_DXR-1}"
 export ROSETTA_ADVERTISE_AVX="${ROSETTA_ADVERTISE_AVX-1}"
 
+# CW HACK 22434 / 23015: tell ntdll where libd3dshared.dylib lives so
+# the non-native-code-region trampolines can detect D3DMetal callbacks
+# and use the ms_abi thunk. Without this env var the asm thunks fall
+# through to the sysv path unconditionally, D3D callbacks get the wrong
+# calling convention, registers corrupt, and CEF's GPU subprocess dies
+# with STATUS_BREAKPOINT (0xC0000005). This is THE Steam-black-window
+# root cause on macOS 14+ for self-built Wine. Requires Sonoma+.
+export CX_APPLEGPTK_LIBD3DSHARED_PATH="${CX_APPLEGPTK_LIBD3DSHARED_PATH-$ENGINE/lib/external/libd3dshared.dylib}"
+
 # Wine sync primitives. macOS uses mach-port-based "msync" (CodeWeavers
 # patch). esync is Linux-only (eventfd); ntsync requires Linux kernel.
 # WINEMSYNC=1 dramatically reduces lock contention in CEF GPU process.
