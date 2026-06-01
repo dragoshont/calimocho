@@ -121,10 +121,7 @@ notices contained on the original."*
   ~5 min cached. Acceptable for the PR cadence we expect (rare).
 - If Apple ever asks calimocho to stop redistributing the
   Redistributables — even though §2A(iii) and §2C permit it — we
-  comply within days (AGENTS rule #3 "respect upstream"). Mitigation
-  strategy will be written up in `docs/relationship-with-apple.md`
-  when the repo attracts meaningful traffic (currently we are silent
-  per AGENTS rule #6, so the question hasn't come up).
+  comply within days (AGENTS rule #3 "respect upstream").
 
 ### Neutral
 - Adds three new files: `versions.json`, `scripts/package-gptk-redist.sh`,
