@@ -36,6 +36,13 @@ on:
   schedule:
     - cron: '0 9 * * 1'  # Monday 09:00 UTC
   workflow_dispatch:
+  # Smoke-trigger the workflow on every change to this file, so YAML
+  # mistakes surface on PR rather than at the next Monday cron. Costs
+  # ~30s per change.
+  push:
+    paths:
+      - '.github/workflows/upstream-watch.yml'
+      - 'versions.json'
 
 permissions:
   contents: read
