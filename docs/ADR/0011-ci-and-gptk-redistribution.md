@@ -123,6 +123,73 @@ exact Issue title (open OR closed) and skips if it already exists, so
 the maintainer can close an Issue and not have it re-spam every
 Monday.
 
+### 5. Phase 4 distribution model: pre-bundle into Calimocho.app
+
+The same GPTK Redistributables tarball that CI consumes also ships
+**pre-bundled inside `Calimocho.app`** when Phase 4 produces the DMG.
+Concretely, the DMG layout is:
+
+```
+Calimocho-vX.Y.Z.dmg
+└── Calimocho.app/
+    └── Contents/
+        ├── MacOS/Calimocho                          (SwiftUI binary)
+        ├── Resources/
+        │   ├── Engine/
+        │   │   ├── bin/wine                         (x86_64)
+        │   │   ├── lib/wine/{i386,x86_64}-{windows,unix}/
+        │   │   └── lib/external/
+        │   │       ├── D3DMetal.framework/          (GPTK redist)
+        │   │       └── libd3dshared.dylib           (GPTK redist)
+        │   └── THIRDPARTY/
+        │       └── Apple-GPTK/
+        │           └── License.rtf                  (verbatim Apple SLA)
+        └── _CodeSignature/
+```
+
+End-user install is one drag from the DMG to /Applications. No second
+download, no Apple Developer ID, no first-run lazy-download wizard
+step for the engine itself. (The first-run wizard's "Install Steam"
+step is separate and downloads `SteamSetup.exe` directly from
+Steam's CDN; that has always been part of the design.)
+
+This matches the distribution model of:
+
+- **CrossOver** — D3DMetal lives inside
+  `CrossOver.app/Contents/SharedSupport/`. Single drag-install from the
+  CrossOver DMG.
+- **Whisky** — D3DMetal was bundled into Whisky's first-launch
+  Libraries cache. Single drag-install from the Whisky DMG.
+
+Both are permitted by Apple GPTK SLA §2A(iii) + §2C. So is calimocho.
+
+**Why this is decided in Phase 1.5 and not Phase 4**: the decision is
+documented now so that Phase 2 (App shell) and Phase 4 (DMG) implement
+to it without re-litigating. Phase 4's acceptance criterion A4.8
+encodes the layout above; A4.9 sets the ~200 MB DMG size budget
+(150 MB engine + 16 MB GPTK + slack).
+
+### Alternative considered and rejected: lazy first-launch download
+
+Whisky historically also supported a "download Wine on first launch"
+path (the dead `data.getwhisky.app` CDN). It had three problems we'd
+inherit:
+
+1. **Network required at first launch.** Many users open a
+   downloaded app on a flight or in offline environments. Failing
+   silently or with a network error on first-ever launch is the worst
+   possible onboarding.
+2. **CDN durability burden.** Whisky's CDN went offline after
+   archive, breaking installs months later. Calimocho would hit the
+   same problem if we ship from a CDN we own.
+3. **More moving parts in the SwiftUI app.** Download progress UI,
+   resume, sha256 verification, retry, cache invalidation. Phase 2
+   stays smaller without it.
+
+The bundle-everything-into-the-DMG approach trades ~16 MB of download
+size for zero first-launch UX risk and zero CDN durability burden.
+The trade is unambiguously correct for calimocho's scope.
+
 ## Consequences
 
 ### Positive

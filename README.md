@@ -168,13 +168,21 @@ a one-row table. That is the whole supported list.
 
 v1.0 will ship a DMG:
 
-1. Download `Calimocho-vX.Y.Z.dmg` from GitHub Releases.
+1. Download `Calimocho-vX.Y.Z.dmg` from GitHub Releases (~200 MB).
 2. Open the DMG, drag `Calimocho.app` to `/Applications`.
 3. Right-click `Calimocho.app` → Open (one-time Gatekeeper bypass for
    ad-hoc-signed apps; see [troubleshooting.md](docs/troubleshooting.md)).
 4. Follow the first-run wizard: it installs Steam into a
    Calimocho-owned bottle.
 5. Sign in to Steam, install Subnautica 2, play.
+
+**That is the entire install.** The Wine engine, Apple's GPTK
+D3DMetal framework, and the Apple GPTK SLA license text all ship
+inside the DMG. You do **not** download GPTK from Apple, you do
+**not** need an Apple Developer ID, and there is no first-launch
+lazy download. Drag once, done. This matches how CrossOver and
+Whisky distribute, and is permitted by Apple's GPTK SLA §2A(iii) +
+§2C — see [ADR-0011](docs/ADR/0011-ci-and-gptk-redistribution.md).
 
 **Status**: not shipped yet. Track progress in
 [docs/PHASES.md](docs/PHASES.md) and [docs/build-log.md](docs/build-log.md).

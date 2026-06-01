@@ -345,6 +345,41 @@ responsibility to delete).
 A4.7 README.md install instructions match the exact UX of A4.5. If they
 differ, README is wrong, not the app.
 
+A4.8 **The DMG is self-contained**. `Calimocho.app` ships with the
+full engine and Apple GPTK Redistributables pre-bundled:
+
+```
+Calimocho.app/Contents/Resources/Engine/
+├── bin/wine
+├── lib/wine/{i386-windows,x86_64-windows,x86_64-unix}/
+└── lib/external/
+    ├── D3DMetal.framework/
+    └── libd3dshared.dylib
+Calimocho.app/Contents/Resources/THIRDPARTY/Apple-GPTK/License.rtf
+```
+
+A user installing calimocho does **not** download GPTK separately,
+does **not** need an Apple Developer ID, does **not** wait for
+first-launch lazy downloads. One drag from the DMG to /Applications
+puts everything in place. Verified by:
+
+```bash
+hdiutil attach Calimocho-vX.Y.Z.dmg -nobrowse -quiet
+test -f "/Volumes/Calimocho/Calimocho.app/Contents/Resources/Engine/bin/wine"
+test -d "/Volumes/Calimocho/Calimocho.app/Contents/Resources/Engine/lib/external/D3DMetal.framework"
+test -f "/Volumes/Calimocho/Calimocho.app/Contents/Resources/THIRDPARTY/Apple-GPTK/License.rtf"
+hdiutil detach "/Volumes/Calimocho" -quiet
+```
+
+This matches the distribution model of every shipping Wine-on-Mac
+stack (CrossOver, Whisky) and is permitted by Apple GPTK SLA §2A(iii)
++ §2C — see [ADR-0011](ADR/0011-ci-and-gptk-redistribution.md).
+
+A4.9 DMG size budget: ≤ 250 MB. (Wine engine ~150 MB + GPTK redist
+~16 MB + SwiftUI app ~10 MB + DMG metadata + slack ≈ 200 MB target,
+250 MB hard ceiling. Exceeding the ceiling indicates dead weight
+that needs trimming — e.g. debug symbols, unused locales.)
+
 ### Phase 4 deliverables
 
 - `scripts/build-dmg.sh` (uses `hdiutil` or `create-dmg`)
@@ -359,6 +394,10 @@ differ, README is wrong, not the app.
 - App Store distribution (never; Wine JIT)
 - Auto-update via Sparkle (Phase 5)
 - Homebrew tap (Phase 5 optional)
+- **Lazy/on-demand GPTK download**. Calimocho explicitly does NOT
+  ask the user to download GPTK at first run (CrossOver and Whisky
+  both pre-bundle it; we match that pattern per A4.8). The legal
+  basis is in ADR-0011.
 
 ---
 
