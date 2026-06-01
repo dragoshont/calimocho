@@ -60,7 +60,7 @@ fi
 if [[ "$(uname -m)" != "arm64" ]]; then
   log "WARNING: this script targets Apple Silicon (got $(uname -m))."
   log "Intel Mac builds work without the x86 Homebrew layer — just"
-  log "  brew install gnutls freetype sdl2 libpng dbus mingw-w64 bison flex pkg-config"
+  log "  brew install gnutls freetype sdl2 libpng dbus mingw-w64 bison flex pkg-config gstreamer ffmpeg molten-vk libffi zlib bzip2"
   log "and run scripts/build-wine.sh."
   exit 1
 fi
@@ -108,6 +108,12 @@ DEPS=(
   bison        # Wine parser.y (system bison 2.3 too old)
   flex         # Wine .l lexers
   pkg-config   # configure dep discovery
+  gstreamer    # CEF media pipeline (Steam UI needs this)
+  ffmpeg       # video codecs for CEF + Wine media
+  molten-vk    # Vulkan-on-Metal (CEF GPU process)
+  libffi       # transitive dep of gstreamer (keg-only pkgconfig)
+  zlib         # transitive dep of gnutls/freetype (keg-only pkgconfig)
+  bzip2        # transitive dep of freetype (keg-only pkgconfig)
 )
 
 log "checking x86_64 brew formulae"

@@ -200,3 +200,205 @@ header probes.
 - `patches/wine/0003-rename-wineloader-id.patch`
 - `scripts/wine-entitlements.plist`
 - `scripts/*.sh` (the 9 scripts listed above)
+
+## 2026-06-01 — CW HACK 22434 discovered: CEF GPU crash root cause
+
+Adversarial investigation against installed CrossOver 26.5 to determine
+whether the Steam black-screen issue was (a) a missing config in our
+build or (b) held-back patches in the LGPL release.
+
+Result: **(a) — a missing env var, not held-back patches.**
+
+- `strings(1)` on CrossOver's `ntdll.so` revealed `CX_APPLEGPTK_LIBD3DSHARED_PATH`
+- Same string appears in our compiled `ntdll.so` (proves the patch is in the LGPL release)
+- Wine source `dlls/ntdll/unix/loader.c:1303-1352` (CW HACK 22434) +
+  `dlls/ntdll/unix/unix_private.h:600-624` (CX Hack 23015) read this env var to
+  hook D3DMetal's ms_abi callbacks
+- Without the env var, asm trampolines unconditionally use sysv calling convention
+  → register corruption when D3DMetal calls back into wine
+  → CEF GPU subprocess STATUS_BREAKPOINT (0xC0000005)
+  → 6+ crashes → CEF disables GPU → black window
+
+Fix: `export CX_APPLEGPTK_LIBD3DSHARED_PATH=$ENGINE/lib/external/libd3dshared.dylib`
+in `bin/calimocho-wine`. Documented in [ADR-0013](ADR/0013-cw-hack-22434-d3dshared-env.md).
+
+Also discovered three operational gaps:
+1. `scripts/sign-engine.sh` had never been run after the Wine 11 full-features
+   rebuild — every Mach-O in the engine was unsigned, blocking dylib loads
+   under macOS hardened runtime
+2. `cp` of `libd3dshared.dylib` from `/Applications/Game Porting Toolkit.app/`
+   propagates `com.apple.quarantine` xattr; needs `xattr -c` after copy or
+   `cp -X` to skip xattrs
+3. `bin/calimocho-wine` in the repo and `out/engine/bin/calimocho-wine` are
+   separate files — must be sync'd after every edit (build-app.sh handles this
+   via rsync but ad-hoc edits don't)
+
+Verification:
+- Before fix: 6+ `exit_code=-2147483645` per launch, `variations_crash_streak=6`
+- After fix: 0 crashes, GPU subprocess stays alive, GPU not disabled by CEF
+
+Remaining (NOT this ADR's scope): ANGLE's D3D11 init still fails
+(`Renderer11.cpp:1108 Error querying driver version from DXGI Adapter`)
+causing fallback to GLES 2.0, which is below CEF compositor minimum, so the
+window paints but renders black. Investigating whether DXVK overrides are
+actually applying or if wined3d's DXGI shim needs additional config.
+
+## 2026-06-01 (cont'd) — Adversarial investigation vs Porting Kit + CrossOver
+
+After the CW HACK fix eliminated GPU subprocess crashes, ANGLE still
+failed `Renderer11::populateRenderer11DeviceCaps` with the DXVK route
+and CEF fell back to GLES 2.0 → window painted but rendered black.
+
+Tested four configurations against the same Wine 11 build:
+
+| Config | GPU crashes | ANGLE D3D11 | Window |
+|---|---|---|---|
+| DXVK (`d3d11,dxgi=n`), no registry tweaks | 0 | NVIDIA 8800 GTX (wrong) | black |
+| Builtin (`d3d11,dxgi=b`) + DXVK DLLs removed | 9 | n/a (crashed) | black |
+| DXVK + PK registry config (`csmt=1, renderer=gl`) | 6 | NVIDIA 8800 GTX | black |
+| DXVK + PK registry + `renderer=vulkan` | **0** | **Apple M1 Max (correct)** | black |
+
+The `Wine\Direct3D\renderer=vulkan` registry setting flips wined3d's
+backend from OpenGL ES (which Apple deprecated and never updated past
+GL 4.1 on M-series) to Vulkan (MoltenVK → Metal). With `renderer=vulkan`
+ANGLE correctly reports the M1 Max as the D3D11 adapter and GPU process
+stays alive across the full Steam boot.
+
+**Remaining issue**: window is now in the macOS accessibility tree at
+the right size (705x440), GPU subprocess survives, ANGLE reports a
+working D3D11 device — but the macOS window stays solid black. This is
+a separate winemac.drv ↔ wined3d swap-chain composition issue, not the
+original GPU crash. The render target gets written but never composited
+to the NSWindow's Metal layer.
+
+Findings on PK/CX comparison:
+- PK ships **gcenx's wine-private wined3d-based d3d11.dll** in the
+  bottle (sourced from `/Users/gcenx/Documents/GitHub/wine-private/`),
+  NOT real DXVK. It's the same wined3d code as our Wine 11 builtin.
+- PK wraps wine with `wineskinlauncher` (Wineskin) which sets
+  `MVK_ALLOW_METAL_FENCES=1`, `MVK_CONFIG_VK_SEMAPHORE_SUPPORT_STYLE=
+  ..._SINGLE_QUEUE`, plus `D3DMETALPATH` to a bundled D3DMetal copy.
+- CX deletes WINEDLLOVERRIDES entirely (defaults to builtin) and uses
+  the CW HACK 22434 path with its proprietary wine-11.0-8720 commits
+  ahead of upstream.
+- Neither sets anything we haven't now tried. The remaining gap is in
+  Wine 11 vs Wine 10's winemac.drv composition path, not in registry
+  or env config.
+
+**Honest assessment**: Without weeks of clean-room reverse engineering
+on either CX's 8,720 unpublished commits OR a fix from upstream
+WineHQ for the winemac.drv regression, calimocho cannot match
+CrossOver/PK rendering on this hardware. Phase 2 SHOULD ship without
+working Steam UI rendering and mark A1.4/A2.4 as KNOWN BLOCKER pending
+upstream Wine 11+ winemac.drv fixes.
+
+## 2026-06-01 (audit 4) — D3DMetal integration audit; design lands in ADR-0015
+
+Senior-engineer-style audit before writing any shim code, motivated
+by the concern that earlier scope estimates were anchored on
+assumptions, not data.
+
+Tools used: `nm -gU`, `otool -l`, Python `struct` for PE parsing,
+`capstone` for x86_64 disassembly (installed via Homebrew + venv),
+manual grep of wine 11 source.
+
+### Surprising finding
+
+CodeWeavers' LGPL release of wine 11 already ships
+`dlls/winemac.drv/d3dmetal.c` (436 lines) plus
+`d3dmetal_objc.{h,m}`. These provide a `DECLSPEC_EXPORT` callback
+table (`macdrv_functions`, 192 bytes, 24 entries) that
+`D3DMetal.framework` calls back into via `GetMacDRVFunctions()` in
+`libd3dshared.dylib`. Three out of four pieces of the integration
+chain are therefore already built into every calimocho engine
+bundle today.
+
+The missing piece is the **PE side** of `d3d11.dll`: a thin shim
+that funnels Microsoft D3D11 entry points (CEF's input) into
+D3DMetal's matching exports. ADR-0015 details the design.
+
+### Confidence findings
+
+- Apple's compiled `d3d11.dll` has **only 3 exports**. PE export
+  table read directly via Python.
+- `.text` is **662 bytes** total. Disassembled via capstone; every
+  export is a near-identical ~30-byte dispatcher matching wine's
+  `__wine_unix_call(handle, code, args)` pattern.
+- D3DMetal's `D3D11CreateDevice` prologue spills XMM6-XMM15 and
+  reads R9 → **compiled with `__attribute__((ms_abi))`** → calls
+  from a PE shim work directly without per-method vtable thunks.
+- Our `winemac.so` already exports `_macdrv_functions` —
+  `nm -gU` confirms.
+- Our `libd3dshared.dylib` exports `GetMacDRVFunctions()` —
+  `nm -g` confirms.
+
+### Scope, with confidence
+
+| Component | Lines | New / modified |
+|---|---|---|
+| d3d11 PE shim | ~150 | new file |
+| d3d11 ELF unix lib | ~120 | new file |
+| d3d11 private header | ~80 | new file |
+| d3d11 Makefile.in | 4 | modified |
+| d3d11_main.c | 2 | modified |
+| dxgi same trio | ~250 | new + modified |
+
+Total: ~600 lines of new C, plus 6 lines of modifications. Packaged
+as two patches in `patches/wine/`.
+
+### Packaging decision
+
+Patches (vs vendored fork submodule): patches win at this scope.
+Three patches don't justify a 500 MB submodule. Documented in
+ADR-0015.
+
+### Testing strategy
+
+Three tiers planned (Tier 1 unit on D3D11CreateDevice round-trip,
+Tier 2 swap chain Present(), Tier 3 visual NCC on Steam UI).
+Defined in ADR-0015 §Testing strategy.
+
+## 2026-06-01 — ADR-0015 implementation: shim built, Tier 1 PASSES
+
+Following the audit (ADR-0015), implemented the D3DMetal-forwarding
+shim per design:
+
+- `patches/wine/files/d3d11/d3d11_d3dmetal.c` (PE side, 158 lines)
+- `patches/wine/files/d3d11/d3d11_d3dmetal_unix.c` (ELF unixlib, 369 lines)
+- `patches/wine/files/d3d11/d3d11_d3dmetal_private.h` (shared types, 89 lines)
+- `patches/wine/0004-d3d11-d3dmetal-shim.patch` (wine source integration, 65 lines)
+- `tests/d3d11_shim/test_d3dmetal_shim.c` (Tier 1 unit test, 83 lines)
+- Updated `scripts/patch-sources.sh` to sync `patches/wine/files/` into wine tree
+
+**Tier 1 unit test PASSES:** standalone test EXE successfully:
+- Loaded our shim
+- dlopen'd `D3DMetal.framework`
+- Called `D3D11CreateDevice` and got `S_OK` back
+- Received valid `ID3D11Device*` with feature_level 0xb000 (FL 11.0)
+- AddRef/Release vtable methods round-trip correctly
+
+This proves the architectural design works: PE ms_abi shim → wine
+unixlib dispatcher → ELF sysv_abi → ms_abi-typed function pointer →
+D3DMetal.framework → real M1 Max D3D11 device.
+
+**Steam-specific integration is INCOMPLETE.** Standalone test passes
+but Steam still crashes the GPU subprocess 9 times. The
+file-based shim log (`~/Library/Logs/Calimocho/d3d11-shim.log`,
+opt-in via `CALIMOCHO_D3D11_DEBUG=1`) stays empty during Steam
+launches, indicating Steam's CEF subprocess never reaches our
+`D3D11CreateDevice` interceptor. Hypothesis: CEF spawns its GPU
+helper via a path that bypasses the `WINEDLLOVERRIDES` we set, OR
+CEF crashes earlier in its loader before reaching d3d11.dll. Needs
+further investigation:
+
+1. Trace which `d3d11.dll` Steam actually loads (`WINEDEBUG=+module`
+   in a freshly-killed bottle)
+2. Check whether CEF's separate prefetch_2 GPU helper process
+   reaches the shim init
+3. Consider per-app override `AppDefaults\\steamwebhelper.exe`
+4. Run Tier 2 test (HWND + swap chain + Present) to bisect
+   "shim works in isolation" vs "shim fails when given a real
+   Win32 window"
+
+This is now a Steam/CEF integration debugging problem, not a shim
+design problem. The shim itself is sound.

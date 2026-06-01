@@ -1,0 +1,65 @@
+# applied-marker: calimocho-d3dmetal-shim
+# Wires calimocho's D3DMetal shim into wine's d3d11.dll.
+# Companion source files (d3d11_d3dmetal.c, d3d11_d3dmetal_unix.c,
+# d3d11_d3dmetal_private.h) are copied in separately by
+# scripts/patch-sources.sh from patches/wine/files/d3d11/.
+# See docs/ADR/0015-d3dmetal-shim-implementation.md.
+--- a/dlls/d3d11/Makefile.in	2026-06-01 17:50:25
++++ b/dlls/d3d11/Makefile.in	2026-06-01 17:50:25
+@@ -1,5 +1,8 @@
++# calimocho-d3dmetal-shim: add UNIXLIB + new sources for D3DMetal forwarding.
+ MODULE    = d3d11.dll
+ IMPORTLIB = d3d11
++UNIXLIB   = d3d11.so
++UNIX_LIBS = -ldl -lpthread
+ IMPORTS   = dxguid uuid dxgi wined3d
+ EXTRAINCL = $(VKD3D_PE_CFLAGS)
+ 
+@@ -7,6 +10,8 @@
+         async.c \
+         buffer.c \
+         d3d11_main.c \
++        d3d11_d3dmetal.c \
++        d3d11_d3dmetal_unix.c \
+         decoder.c \
+         device.c \
+         inputlayout.c \
+--- a/dlls/d3d11/d3d11_main.c	2026-06-01 17:50:25
++++ b/dlls/d3d11/d3d11_main.c	2026-06-01 17:50:25
+@@ -23,6 +23,20 @@
+ #define D3D11_INIT_GUID
+ #include "d3d11_private.h"
+ 
++/* calimocho-d3dmetal-shim: forward-decls of helpers defined in
++ * d3d11_d3dmetal.c. Returns DXGI_ERROR_UNSUPPORTED when D3DMetal is
++ * unavailable; caller falls through to wined3d. */
++extern HRESULT d3dmetal_create_device(IDXGIAdapter *adapter, D3D_DRIVER_TYPE driver_type,
++        HMODULE software, UINT flags, const D3D_FEATURE_LEVEL *feature_levels,
++        UINT feature_levels_count, UINT sdk_version, ID3D11Device **device_out,
++        D3D_FEATURE_LEVEL *feature_level_out, ID3D11DeviceContext **immediate_context_out);
++extern HRESULT d3dmetal_create_device_and_swap_chain(IDXGIAdapter *adapter, D3D_DRIVER_TYPE driver_type,
++        HMODULE software, UINT flags, const D3D_FEATURE_LEVEL *feature_levels,
++        UINT feature_levels_count, UINT sdk_version, const DXGI_SWAP_CHAIN_DESC *swap_chain_desc,
++        IDXGISwapChain **swap_chain_out, ID3D11Device **device_out,
++        D3D_FEATURE_LEVEL *feature_level_out, ID3D11DeviceContext **immediate_context_out);
++
++
+ WINE_DEFAULT_DEBUG_CHANNEL(d3d11);
+ 
+ static const char *debug_d3d_driver_type(D3D_DRIVER_TYPE driver_type)
+@@ -288,6 +302,15 @@
+         const D3D_FEATURE_LEVEL *feature_levels, UINT levels, UINT sdk_version, ID3D11Device **device_out,
+         D3D_FEATURE_LEVEL *obtained_feature_level, ID3D11DeviceContext **immediate_context)
+ {
++    /* calimocho-d3dmetal-shim: try D3DMetal first; on any failure
++     * fall through to wined3d. The shim caches "unavailable" after
++     * its first failed init, so this is cheap on subsequent calls. */
++    HRESULT hr = d3dmetal_create_device(adapter, driver_type, swrast, flags, feature_levels,
++            levels, sdk_version, device_out, obtained_feature_level, immediate_context);
++    if (hr != DXGI_ERROR_UNSUPPORTED)
++        return hr;
++    TRACE("D3DMetal unavailable, falling through to wined3d.\n");
++
+     return d3d11_create_device(adapter, driver_type, swrast, flags, feature_levels,
+             levels, sdk_version, device_out, obtained_feature_level, immediate_context);
+ }

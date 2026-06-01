@@ -44,7 +44,20 @@ GPTK_EXTERNAL="$ENGINE/lib/external"
 # doesn't include .NET-based Windows apps; SN2 and Steam don't need
 # them. Users who DO want .NET can override:
 #   WINEDLLOVERRIDES= calimocho-wine ...
-export WINEDLLOVERRIDES="${WINEDLLOVERRIDES-mscoree,mshtml=}"
+#
+# D3D11/DXGI: native (DXVK) for Steam CEF. We tested both routes
+# against this Wine 11 build:
+#   - native (DXVK):   0 GPU subprocess crashes; ANGLE still can't
+#                      query DXGI driver version, so CEF falls back
+#                      to GLES 2.0 (renders, but compositor is degraded)
+#   - builtin (wined3d -> winemac -> D3DMetal): 9 GPU subprocess
+#                      STATUS_BREAKPOINT crashes per launch (the
+#                      D3DMetal callback path has a separate ABI issue
+#                      that CW HACK 22434 does not cover)
+# DXVK is therefore the lesser evil today. Porting Kit's wine 10.0
+# builtin route works for them; ours doesn't, possibly a wine 11
+# regression. To debug, set WINEDLLOVERRIDES=...=b at runtime.
+export WINEDLLOVERRIDES="${WINEDLLOVERRIDES-mscoree,mshtml=;d3d11,dxgi=n}"
 
 # Make Wine's runtime dlopen find the bundled libfreetype/libgnutls/
 # libdbus/libSDL2/etc. Also include GPTK's own framework dir for
@@ -53,8 +66,11 @@ export WINEDLLOVERRIDES="${WINEDLLOVERRIDES-mscoree,mshtml=}"
 # normal dyld search order applies first — important: if the user
 # has a system libfreetype, it wins, and our bundled copy is the
 # fallback only for missing-from-system cases. Conservative.
+# Note: GPTK_EXTERNAL ($ENGINE/lib/external) is listed before
+# RUNTIME_DEPS ($ENGINE/lib/external/runtime) so the top-level dir
+# is searchable for libd3dshared and the Vulkan ICD loader.
 existing="${DYLD_FALLBACK_LIBRARY_PATH-}"
-new_path="$RUNTIME_DEPS:$GPTK_EXTERNAL"
+new_path="$GPTK_EXTERNAL:$RUNTIME_DEPS"
 if [[ -n "$existing" ]]; then
   export DYLD_FALLBACK_LIBRARY_PATH="$existing:$new_path:/usr/lib"
 else
@@ -63,5 +79,61 @@ fi
 
 # Quiet Wine debug output by default. Users override with WINEDEBUG=...
 export WINEDEBUG="${WINEDEBUG-err-all,fixme-all}"
+
+# Vulkan / MoltenVK configuration. Steam's Chromium Embedded Framework
+# (CEF) GPU process requires a working Vulkan ICD or it crashes with
+# STATUS_BREAKPOINT and the Steam window renders solid black.
+# Point the Vulkan loader at our bundled MoltenVK ICD manifest.
+export VK_ICD_FILENAMES="${VK_ICD_FILENAMES-$ENGINE/share/vulkan/icd.d/MoltenVK_icd.json}"
+
+# Apple GPTK environment hints (per GPTK Read Me)
+export D3DM_ENABLE_METALFX="${D3DM_ENABLE_METALFX-1}"
+export D3DM_SUPPORT_DXR="${D3DM_SUPPORT_DXR-1}"
+export ROSETTA_ADVERTISE_AVX="${ROSETTA_ADVERTISE_AVX-1}"
+
+# CW HACK 22434 / 23015: tell ntdll where libd3dshared.dylib lives so
+# the non-native-code-region trampolines can detect D3DMetal callbacks
+# and use the ms_abi thunk. Without this env var the asm thunks fall
+# through to the sysv path unconditionally, D3D callbacks get the wrong
+# calling convention, registers corrupt, and CEF's GPU subprocess dies
+# with STATUS_BREAKPOINT (0xC0000005). This is THE Steam-black-window
+# root cause on macOS 14+ for self-built Wine. Requires Sonoma+.
+export CX_APPLEGPTK_LIBD3DSHARED_PATH="${CX_APPLEGPTK_LIBD3DSHARED_PATH-$ENGINE/lib/external/libd3dshared.dylib}"
+
+# Wine sync primitives. macOS uses mach-port-based "msync" (CodeWeavers
+# patch). esync is Linux-only (eventfd); ntsync requires Linux kernel.
+# WINEMSYNC=1 dramatically reduces lock contention in CEF GPU process.
+export WINEMSYNC="${WINEMSYNC-1}"
+export WINEESYNC="${WINEESYNC-1}"
+
+# MoltenVK tuning for CEF GPU subprocess (mirrors Wineskin / Porting Kit).
+# - RESUME_LOST_DEVICE: don't crash when Metal device is lost mid-frame
+# - FULL_IMAGE_VIEW_SWIZZLE: handles BGRA → RGBA channel reordering for CEF
+# - FAST_MATH_ENABLED=0: matches PK; precision over speed in CEF
+export MVK_CONFIG_RESUME_LOST_DEVICE="${MVK_CONFIG_RESUME_LOST_DEVICE-1}"
+export MVK_CONFIG_FULL_IMAGE_VIEW_SWIZZLE="${MVK_CONFIG_FULL_IMAGE_VIEW_SWIZZLE-1}"
+export MVK_CONFIG_FAST_MATH_ENABLED="${MVK_CONFIG_FAST_MATH_ENABLED-0}"
+export MTL_HUD_ENABLED="${MTL_HUD_ENABLED-0}"
+# Extra PK-derived MoltenVK tunings (from Wineskin launcher strings).
+# ALLOW_METAL_FENCES: use MTLFence on macOS 13+, faster than emulation.
+# VK_SEMAPHORE_SUPPORT_STYLE_SINGLE_QUEUE: matches Apple's GPTK guidance.
+export MVK_ALLOW_METAL_FENCES="${MVK_ALLOW_METAL_FENCES-1}"
+export MVK_CONFIG_VK_SEMAPHORE_SUPPORT_STYLE="${MVK_CONFIG_VK_SEMAPHORE_SUPPORT_STYLE-MVK_CONFIG_VK_SEMAPHORE_SUPPORT_STYLE_SINGLE_QUEUE}"
+
+# GStreamer plugin path. Wine's winegstreamer.dll calls into the
+# bundled GStreamer plugins to decode CEF media (Steam UI's animated
+# elements + game intro videos). Without this, CEF media subsystem
+# fails to init, which in turn crashes the GPU subprocess.
+# (Proton sets GST_PLUGIN_SYSTEM_PATH_1_0, not GST_PLUGIN_PATH.)
+if [[ -d "$ENGINE/lib/gstreamer-1.0" ]]; then
+  export GST_PLUGIN_SYSTEM_PATH_1_0="${GST_PLUGIN_SYSTEM_PATH_1_0-$ENGINE/lib/gstreamer-1.0}"
+fi
+
+# WINE_DISABLE_VULKAN_OPWR: disables "Other Process Window Rendering"
+# in Wine's Vulkan layer. This is the path CEF uses to share GPU
+# buffers across its sandboxed process boundary. On macOS this is
+# the suspected cause of STATUS_BREAKPOINT crashes (per Proton's
+# "noopwr" workaround for similar Wayland issues).
+export WINE_DISABLE_VULKAN_OPWR="${WINE_DISABLE_VULKAN_OPWR-1}"
 
 exec "$WINE_BIN" "$@"
