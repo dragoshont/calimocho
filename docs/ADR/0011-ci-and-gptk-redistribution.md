@@ -122,8 +122,9 @@ notices contained on the original."*
 - If Apple ever asks calimocho to stop redistributing the
   Redistributables — even though §2A(iii) and §2C permit it — we
   comply within days (AGENTS rule #3 "respect upstream"). Mitigation
-  is documented in [docs/relationship-with-apple.md] — TODO when we
-  bring meaningful traffic to the repo.
+  strategy will be written up in `docs/relationship-with-apple.md`
+  when the repo attracts meaningful traffic (currently we are silent
+  per AGENTS rule #6, so the question hasn't come up).
 
 ### Neutral
 - Adds three new files: `versions.json`, `scripts/package-gptk-redist.sh`,
