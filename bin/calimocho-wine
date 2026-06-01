@@ -44,12 +44,19 @@ GPTK_EXTERNAL="$ENGINE/lib/external"
 # doesn't include .NET-based Windows apps; SN2 and Steam don't need
 # them. Users who DO want .NET can override:
 #   WINEDLLOVERRIDES= calimocho-wine ...
-# 
-# ALSO: Force native (GPTK) d3d11/dxgi for Steam CEF rendering.
-# Steam's Chromium Embedded Framework windows render as black with
-# Wine's builtin d3d11. CodeWeavers patches + GPTK's D3DMetal.framework
-# require "native" to route through D3DMetal instead of Wine's stub.
-# This fixes the "black Steam window" bug (SPECS A1.4).
+#
+# D3D11/DXGI: native (DXVK) for Steam CEF. We tested both routes
+# against this Wine 11 build:
+#   - native (DXVK):   0 GPU subprocess crashes; ANGLE still can't
+#                      query DXGI driver version, so CEF falls back
+#                      to GLES 2.0 (renders, but compositor is degraded)
+#   - builtin (wined3d -> winemac -> D3DMetal): 9 GPU subprocess
+#                      STATUS_BREAKPOINT crashes per launch (the
+#                      D3DMetal callback path has a separate ABI issue
+#                      that CW HACK 22434 does not cover)
+# DXVK is therefore the lesser evil today. Porting Kit's wine 10.0
+# builtin route works for them; ours doesn't, possibly a wine 11
+# regression. To debug, set WINEDLLOVERRIDES=...=b at runtime.
 export WINEDLLOVERRIDES="${WINEDLLOVERRIDES-mscoree,mshtml=;d3d11,dxgi=n}"
 
 # Make Wine's runtime dlopen find the bundled libfreetype/libgnutls/
@@ -105,6 +112,11 @@ export MVK_CONFIG_RESUME_LOST_DEVICE="${MVK_CONFIG_RESUME_LOST_DEVICE-1}"
 export MVK_CONFIG_FULL_IMAGE_VIEW_SWIZZLE="${MVK_CONFIG_FULL_IMAGE_VIEW_SWIZZLE-1}"
 export MVK_CONFIG_FAST_MATH_ENABLED="${MVK_CONFIG_FAST_MATH_ENABLED-0}"
 export MTL_HUD_ENABLED="${MTL_HUD_ENABLED-0}"
+# Extra PK-derived MoltenVK tunings (from Wineskin launcher strings).
+# ALLOW_METAL_FENCES: use MTLFence on macOS 13+, faster than emulation.
+# VK_SEMAPHORE_SUPPORT_STYLE_SINGLE_QUEUE: matches Apple's GPTK guidance.
+export MVK_ALLOW_METAL_FENCES="${MVK_ALLOW_METAL_FENCES-1}"
+export MVK_CONFIG_VK_SEMAPHORE_SUPPORT_STYLE="${MVK_CONFIG_VK_SEMAPHORE_SUPPORT_STYLE-MVK_CONFIG_VK_SEMAPHORE_SUPPORT_STYLE_SINGLE_QUEUE}"
 
 # GStreamer plugin path. Wine's winegstreamer.dll calls into the
 # bundled GStreamer plugins to decode CEF media (Steam UI's animated

@@ -242,3 +242,52 @@ Remaining (NOT this ADR's scope): ANGLE's D3D11 init still fails
 causing fallback to GLES 2.0, which is below CEF compositor minimum, so the
 window paints but renders black. Investigating whether DXVK overrides are
 actually applying or if wined3d's DXGI shim needs additional config.
+
+## 2026-06-01 (cont'd) — Adversarial investigation vs Porting Kit + CrossOver
+
+After the CW HACK fix eliminated GPU subprocess crashes, ANGLE still
+failed `Renderer11::populateRenderer11DeviceCaps` with the DXVK route
+and CEF fell back to GLES 2.0 → window painted but rendered black.
+
+Tested four configurations against the same Wine 11 build:
+
+| Config | GPU crashes | ANGLE D3D11 | Window |
+|---|---|---|---|
+| DXVK (`d3d11,dxgi=n`), no registry tweaks | 0 | NVIDIA 8800 GTX (wrong) | black |
+| Builtin (`d3d11,dxgi=b`) + DXVK DLLs removed | 9 | n/a (crashed) | black |
+| DXVK + PK registry config (`csmt=1, renderer=gl`) | 6 | NVIDIA 8800 GTX | black |
+| DXVK + PK registry + `renderer=vulkan` | **0** | **Apple M1 Max (correct)** | black |
+
+The `Wine\Direct3D\renderer=vulkan` registry setting flips wined3d's
+backend from OpenGL ES (which Apple deprecated and never updated past
+GL 4.1 on M-series) to Vulkan (MoltenVK → Metal). With `renderer=vulkan`
+ANGLE correctly reports the M1 Max as the D3D11 adapter and GPU process
+stays alive across the full Steam boot.
+
+**Remaining issue**: window is now in the macOS accessibility tree at
+the right size (705x440), GPU subprocess survives, ANGLE reports a
+working D3D11 device — but the macOS window stays solid black. This is
+a separate winemac.drv ↔ wined3d swap-chain composition issue, not the
+original GPU crash. The render target gets written but never composited
+to the NSWindow's Metal layer.
+
+Findings on PK/CX comparison:
+- PK ships **gcenx's wine-private wined3d-based d3d11.dll** in the
+  bottle (sourced from `/Users/gcenx/Documents/GitHub/wine-private/`),
+  NOT real DXVK. It's the same wined3d code as our Wine 11 builtin.
+- PK wraps wine with `wineskinlauncher` (Wineskin) which sets
+  `MVK_ALLOW_METAL_FENCES=1`, `MVK_CONFIG_VK_SEMAPHORE_SUPPORT_STYLE=
+  ..._SINGLE_QUEUE`, plus `D3DMETALPATH` to a bundled D3DMetal copy.
+- CX deletes WINEDLLOVERRIDES entirely (defaults to builtin) and uses
+  the CW HACK 22434 path with its proprietary wine-11.0-8720 commits
+  ahead of upstream.
+- Neither sets anything we haven't now tried. The remaining gap is in
+  Wine 11 vs Wine 10's winemac.drv composition path, not in registry
+  or env config.
+
+**Honest assessment**: Without weeks of clean-room reverse engineering
+on either CX's 8,720 unpublished commits OR a fix from upstream
+WineHQ for the winemac.drv regression, calimocho cannot match
+CrossOver/PK rendering on this hardware. Phase 2 SHOULD ship without
+working Steam UI rendering and mark A1.4/A2.4 as KNOWN BLOCKER pending
+upstream Wine 11+ winemac.drv fixes.
