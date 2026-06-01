@@ -57,7 +57,7 @@ to confirm. Do not invent code before there is a spec to ground it.
 
 ## 1. Spec-driven loop (run this for every task)
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │ 1. INTENT     What is the user asking for? Map to a phase + a   │
 │               specific A(N).x criterion (or equivalent). If no  │

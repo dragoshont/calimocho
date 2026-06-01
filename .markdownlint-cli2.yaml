@@ -13,6 +13,14 @@ config:
   # MD041 first-line-must-be-h1: NOTICE files start with title under-
   # lined ascii-style, not # H1.
   MD041: false
+  # MD022 blanks-around-headings, MD031 blanks-around-fences,
+  # MD032 blanks-around-lists: stylistic; not catching real bugs.
+  MD022: false
+  MD031: false
+  MD032: false
+  # MD026 trailing-punctuation in headings: our hard rules headings
+  # end with periods deliberately ("### 1. We compile from source.").
+  MD026: false
   # MD024 duplicate headings: ADRs all use Context/Decision/Consequences.
   MD024:
     siblings_only: true

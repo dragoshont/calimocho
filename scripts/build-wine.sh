@@ -134,4 +134,4 @@ log "bundling runtime dylibs (libfreetype, libgnutls, ...)"
 SRC_LIBDIR="${BREW_PREFIX}/lib" "$REPO_ROOT/scripts/bundle-deps.sh" >>"$LOG" 2>&1
 
 log "done — engine staged at $OUT"
-log "  $($OUT/bin/wine --version 2>&1 | head -1)"
+log "  $("$OUT"/bin/wine --version 2>&1 | head -1)"

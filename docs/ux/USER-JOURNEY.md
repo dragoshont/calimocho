@@ -27,7 +27,7 @@ User double-clicks `Calimocho-vX.Y.Z.dmg`. macOS mounts it.
 
 A window opens showing:
 
-```
+```text
    ╭─────────────────────────────────────────╮
    │                                         │
    │      🍷                          📁      │
@@ -47,7 +47,7 @@ User opens /Applications/, double-clicks Calimocho.
 
 macOS shows:
 
-```
+```text
    "Calimocho" can't be opened because Apple cannot check it for
    malicious software.
 
@@ -73,7 +73,7 @@ this workflow.)
 
 Calimocho.app opens for the first time. It shows a one-window wizard:
 
-```
+```text
    ╭────────────────────────────────────────────────────────╮
    │                                                        │
    │   🍷  Welcome to Calimocho                             │
@@ -101,7 +101,7 @@ User clicks "Install Steam".
 
 Wizard shows progress:
 
-```
+```text
    Step 1 of 3: Setting up Wine bottle...   [████░░░░░░] 40%
    Step 2 of 3: Downloading Steam (3 MB)... waiting
    Step 3 of 3: Installing Steam in bottle... waiting
@@ -111,7 +111,7 @@ Each step takes 20-60 seconds. User waits.
 
 When done:
 
-```
+```text
    ✓ Steam is installed.
 
    Click below to launch Steam and sign in. You'll only see this
@@ -187,13 +187,13 @@ Calimocho polls Sparkle's appcast daily. When a new release is published:
 
 A subtle notification appears in the menubar:
 
-```
+```text
    🍷 (1)   ← small badge dot indicating update available
 ```
 
 Click → dropdown shows:
 
-```
+```text
    🍷 Calimocho v1.0.0   (1.0.1 available)
 
    ▶ Open Steam for Windows
@@ -205,7 +205,7 @@ Click → dropdown shows:
 
 Click "Update available". Sparkle dialog:
 
-```
+```text
    ╭────────────────────────────────────────────────╮
    │  A new version of Calimocho is available!      │
    │                                                │
@@ -245,7 +245,7 @@ seconds.
 
 Calimocho shows a non-blocking notification:
 
-```
+```text
    🍷 Steam is taking longer than usual to start.
    This sometimes happens after a macOS update.
    [View logs]   [Force restart]   [Dismiss]
@@ -262,7 +262,7 @@ launcher intercepts it. Instead of letting it appear, we:
 1. Log it to `~/Library/Logs/Calimocho/`
 2. Show our own dialog:
 
-```
+```text
    🍷 Steam's UI process isn't responding.
 
    This is a known issue with Wine on macOS. Calimocho can:
@@ -282,7 +282,7 @@ This will happen. macOS Sequoia → Tahoe → whatever brings ABI changes.
 When Calimocho.app fails to spawn wine (signal 4, signal 11, etc.), the
 app falls back to:
 
-```
+```text
    ╭────────────────────────────────────────────────╮
    │  🍷 Calimocho can't start the Wine engine.    │
    │                                                │

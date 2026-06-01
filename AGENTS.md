@@ -230,7 +230,7 @@ them):
 - Logs live under `~/Library/Logs/Calimocho/`. The app writes
   nowhere else.
 - The shipped error template (CLI stderr + GUI dialogs) is fixed:
-  ```
+  ```text
   calimocho: ERROR <short title>
     Reason: <plain English, non-native-English-friendly>
     Fix:    <what to try>

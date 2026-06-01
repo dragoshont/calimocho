@@ -8,7 +8,7 @@
 
 ## Four-layer overview
 
-```
+```text
 ┌─ Layer 4 — Host GUI ────────────────────────────────────────────┐
 │   Phase 1:   none (CLI-only validation by maintainer)           │
 │   Phase 2+:  Calimocho.app (SwiftUI menubar app)                │
@@ -125,7 +125,7 @@
 
 Lives in the repo's working tree only. Never touches /Applications:
 
-```
+```text
 ~/Repo/calimocho/out/engine/
 ├── bin/wine                                  (x86_64 Mach-O)
 ├── bin/wineserver                            (x86_64 Mach-O)
@@ -142,7 +142,7 @@ Maintainer invokes it directly: `out/engine/bin/wine notepad.exe`.
 
 Bundled inside Calimocho.app:
 
-```
+```text
 /Applications/Calimocho.app/
 ├── Contents/
 │   ├── Info.plist         (bundle id: com.dragoshont.calimocho)
@@ -167,7 +167,7 @@ stable install location and a GUI wrapper.
 
 Phase 1 (developer-only, ephemeral):
 
-```
+```text
 ~/.local/share/calimocho-dev/prefixes/smoke/
 ├── system.reg
 ├── user.reg
@@ -177,7 +177,7 @@ Phase 1 (developer-only, ephemeral):
 
 Phase 2+ (Calimocho-owned, persistent):
 
-```
+```text
 ~/Library/Application Support/Calimocho/Bottles/STEAM/
 ├── system.reg
 ├── user.reg
@@ -193,7 +193,7 @@ uninstall; bottle data persists in app-support across reinstalls.
 
 ### DMG structure (Phase 4+)
 
-```
+```text
 Calimocho-v1.0.0.dmg (read-only mounted volume)
 ├── Calimocho.app/                  ← drag this to /Applications
 ├── Applications -> /Applications   ← symlink, makes the drag obvious
@@ -239,7 +239,7 @@ entirely from a terminal. No Mac-native GUI exists yet.
 
 SwiftUI app, single window-less menubar item. Components:
 
-```
+```text
 Calimocho.app
 ├── MenuBarController       (NSStatusItem + menu population)
 ├── FirstRunWizardWindow    (only shown if no bottle exists)
@@ -259,7 +259,7 @@ See `docs/ux/APP-DESIGN.md` for the UX details.
 
 ### "User launches Steam" (Phase 2+ path)
 
-```
+```text
 User clicks "Open Steam for Windows" in menubar
   → MenuBarController.openSteam()
     → SteamLauncher.launch()
@@ -280,7 +280,7 @@ User clicks "Open Steam for Windows" in menubar
 
 ### "User clicks Install Steam in first-run wizard"
 
-```
+```text
 FirstRunWizard.tapInstall()
   → SteamInstaller.fetch()
     → curl https://cdn.cloudflare.steamstatic.com/client/installer/SteamSetup.exe
