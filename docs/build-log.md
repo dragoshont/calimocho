@@ -402,3 +402,402 @@ further investigation:
 
 This is now a Steam/CEF integration debugging problem, not a shim
 design problem. The shim itself is sound.
+
+## 2026-06-01 (cont'd) — Phase 3 session 1: shim reach confirmed, dxgi gap identified
+
+Continuing on branch `phase3-cef-integration`. Two root causes
+found and one fixed; the remaining one documented in ADR-0016.
+
+### Why the shim log was empty during Steam runs
+
+`bin/calimocho-wine` defaulted `WINEDLLOVERRIDES` to
+`d3d11,dxgi=n` (native = DXVK), explicitly disabling our builtin
+shim. The comment in the file documented prior experiments that
+predated the shim and were never revisited. Tier-1 unit test
+passed in isolation only because tests were run by hand with
+`=b` set in the environment.
+
+Fix: flipped default to `d3d11,dxgi=b` in `bin/calimocho-wine`
+and synced to `out/engine/bin/calimocho-wine`. Users who want
+DXVK again can `WINEDLLOVERRIDES=...d3d11,dxgi=n calimocho-wine`.
+
+### Second issue: Wine 11 builtin loader requires the file to exist in the prefix
+
+Even with `=b`, Wine 11 refused to load `d3d11.dll` if the bottle's
+`drive_c/windows/system32/d3d11.dll` was missing (or moved aside).
+Error: `Library d3d11.dll ... not found, status c0000135`. Wine's
+builtin loader still does the prefix-side filesystem probe before
+falling back to the engine's `lib/wine/x86_64-windows/`.
+
+Fix: copy `d3d11.dll` + `dxgi.dll` from
+`out/engine/lib/wine/{x86_64,i386}-windows/` into
+bottle's `system32`/`syswow64` when preparing the prefix.
+
+After both fixes, Tier-1 test PASSES via `bin/calimocho-wine`
+(rc=0, hr=S_OK, FL 11.0 device, shim log populated).
+
+### Steam launch with the fix: ENTER but no RETURN
+
+Shim log under Steam load (CEF GPU subprocess):
+
+```text
+init: ready (CreateDevice=0x215355ea8, ...)
+create_device: ENTER adapter=0x2b95e0 driver_type=0 flags=0x0
+                levels_count=5 sdk_version=7
+(no RETURN line)
+```
+
+ENTER count: 1. RETURN count: 0. **D3DMetal is reached but never
+returns.** Adapter pointer is non-NULL (CEF's ANGLE enumerated it
+via `IDXGIFactory1::EnumAdapters1` first) and driver_type=UNKNOWN
+(per Microsoft docs, required when adapter != NULL).
+
+Tier-1 worked because it passes `adapter=NULL, driver_type=HARDWARE`
+— D3DMetal allocates its own adapter internally. With a wined3d-
+backed adapter pointer handed in from wine's builtin `dxgi.dll`,
+D3DMetal can't dereference it (different vtable / different
+private layout) and faults.
+
+CEF's next log lines confirm the user-visible symptom one layer up:
+
+```text
+EGL Driver message (Critical) eglInitialize: No available renderers
+eglInitialize D3D11 failed with error EGL_NOT_INITIALIZED
+EGL Driver message (Error) eglCreateContext: Requested GLES version
+                                              (3.0) > max (2,0)
+```
+
+CEF falls back to GLES 2.0 → compositor disabled → black window.
+
+### Decision
+
+Documented in ADR-0016: implement the dxgi.dll D3DMetal shim that
+ADR-0015's audit table planned (~250 lines, "dxgi same trio") but
+the first pass skipped. The d3d11 shim alone is insufficient; the
+adapter pointer must originate from D3DMetal end-to-end.
+
+### Files changed this session
+
+- `bin/calimocho-wine`: default override flipped to `=b`
+- `out/engine/bin/calimocho-wine`: synced
+- `docs/ADR/0016-dxgi-shim-required-for-cef.md`: new
+- `docs/build-log.md`: this entry
+
+## 2026-06-01 (cont'd) — Phase 3 session 2: four-experiment falsification round
+
+Ran four diagnostic experiments before committing to ADR-0016's
+direction. Each either falsifies a hypothesis or narrows the cause.
+
+### Experiment B: env propagation
+
+Added env probe + `dlopen(..., RTLD_NOLOAD)` for libd3dshared at
+shim init. In Steam's CEF GPU subprocess (pid 58358):
+
+```text
+init: pid=58358 ppid=1 CX_APPLEGPTK_LIBD3DSHARED_PATH=...libd3dshared.dylib
+init: libd3dshared already-loaded probe handle=0x77a380
+```
+
+Env propagates. libd3dshared is loaded. **CW HACK 22434 wiring is
+intact in the subprocess.** Falsified.
+
+### Experiment A: FORCE_NULL_ADAPTER
+
+Shim override that substitutes `(NULL, HARDWARE)` for the caller's
+`(adapter, driver_type)`. With it set, D3DMetal CreateDevice
+returns hr=S_OK FL 11.1 device in 391ms.
+
+But Steam still goes black with a NEW error one layer up:
+
+```text
+SwapChain11.cpp:636 Could not create additional swap chains, HRESULT: 0x887A0004
+eglCreateWindowSurface failed with error EGL_BAD_ALLOC
+```
+
+DXGI swap chain creation against a D3DMetal device fails because
+wine's builtin `dxgi.dll` doesn't recognize it. The whole
+**D3D11+DXGI stack must be coherent**.
+
+### Experiment: Apple's complete drop-in (deep dive per request)
+
+Replaced our half-shim with Apple's GPTK `d3d11.dll` + `dxgi.dll`
++ `d3d11.so` + `dxgi.so` + Apple's `libd3dshared.dylib` +
+Apple-signed `D3DMetal.framework`.
+
+Key layout discovery: Apple's `d3d11.so`, `dxgi.so`, `d3d10.so`,
+`d3d12.so` are all **symlinks to one file**:
+`lib/external/libd3dshared.dylib`. First attempt copied them as
+regular files; `@loader_path` then pointed at the wrong directory
+and D3DMetal couldn't resolve. After redoing with symlinks:
+
+- 0 "Failed to dlopen D3DMetal" assertions (was 3 per launch)
+- D3DMetal loads cleanly from `@rpath/D3DMetal.framework/D3DMetal`
+- Steam still black, with new error:
+
+```text
+ERROR:gpu_process_host.cc(1002) GPU process exited unexpectedly:
+                                 exit_code=-1073741819
+```
+
+`0xC0000005` = STATUS_ACCESS_VIOLATION. Apple's libd3dshared was
+built against CodeWeavers' Wine 7.7 ntdll trampoline layout. Our
+Wine 11 has the equivalent functions (env var is set, trampolines
+present) but the ABI offsets/layouts have drifted enough that the
+ms_abi callbacks corrupt memory rather than landing where
+libd3dshared expects.
+
+**Apple drop-in not viable** without a matching CodeWeavers Wine 7.7
+runtime — which would mean shipping a 3-year-old Wine and giving up
+all the CEF/Steam fixes Wine 11 has. Not an acceptable trade.
+
+### Verdict
+
+ADR-0016 stands: build our own dxgi.dll D3DMetal shim symmetric to
+the d3d11 shim. It's the only path that:
+
+1. Routes adapter pointers through D3DMetal end-to-end
+2. Stays on our own Wine 11 ntdll trampolines (CW HACK 22434 wired
+   to our binary, not Apple's)
+3. Is maintainable across CodeWeavers source rebases without
+   pulling 3-year-old binaries
+
+### Engine reset
+
+Restored our calimocho-shim baseline (`d3d11.dll`+`dxgi.dll` PE +
+`d3d11.so` ELF). Removed experimental symlinks and Apple PE
+copies. Re-signed. Bottle's `system32`/`syswow64` still have our
+shim DLLs copied from the engine.
+
+### Files changed this session 2
+
+- `patches/wine/files/d3d11/d3d11_d3dmetal_unix.c`: added env
+  probe (Experiment B) and FORCE_NULL_ADAPTER override
+  (Experiment A) for production use as diagnostic levers
+- `docs/ADR/0016-dxgi-shim-required-for-cef.md`: extended with
+  four-experiment evidence chain
+
+## 2026-06-01 (cont'd) — Phase 3 session 3: Tests D + E + PK reality check
+
+### Test D — Steam CEF with GPU disabled
+
+Hypothesis: Steam CEF has a CPU/SwiftShader fallback that
+bypasses our D3D11 path entirely.
+
+Three flag variants attempted: `-cef-disable-d3d11`,
+`-cef-disable-gpu`, `-cef-force-d3d9`, `-cef-force-software`,
+also `WINEDLLOVERRIDES=d3d11,dxgi=` to disable both.
+
+Bootstrap log shows Steam **received** the flags
+(`Steam Client launched with: ... -cef-disable-d3d11 -cef-disable-gpu`)
+but webhelper still spawns `--type=gpu-process` and CEF still
+tries D3D11. None of those flags actually proxy through to
+steamwebhelper's CEF command line.
+
+Disabling DLLs entirely produces 6+ GPU process crashes
+(`exit_code=-2147483645`); CEF has no usable SwiftShader fallback
+in Steam's build. **Test D: no escape via flags.**
+
+### Test E — SN2 shipping exe directly, bypassing Steam UI
+
+Hypothesis: SN2 talks D3D11 directly (not through CEF). If our
+shim works for direct D3D11 callers (Tier-1 passes), SN2 might
+play even if Steam UI is black.
+
+Launched
+`Subnautica2/Binaries/Win64/Subnautica2-Win64-Shipping.exe`
+directly from CrossOver's existing SN2 install via our
+calimocho-wine. MoltenVK created `WineMetalView` swap chain
+images at 705×440. Shim log:
+
+```text
+create_device: ENTER adapter=0x2fa2b0 driver_type=0
+                levels_count=5 sdk_version=7
+create_device: about to call D3DMetal CreateDevice@0x2159bfea8
+                adapter=0x2fa2b0 driver=0
+(no RETURN line)
+```
+
+**Same failure mode as Steam.** D3DMetal hangs on the non-NULL
+wined3d-backed adapter pointer. SN2 in `Subnautica2.exe` launcher
+exits silently. **Test E: SN2 alone doesn't escape the shim
+problem.** Strong reinforcement of ADR-0016 — adapter coherence
+is required end-to-end for both CEF and UE5.
+
+### PK reality check — measured 2026-06-01
+
+User pointed out two PK Steambuild apps are installed locally.
+We measured both — and this changes the strategic picture.
+
+**Steambuild 32 64bit DXVK.app:**
+
+```text
+Wine version:          10.0 Sikarugir  (gcenx-built, not Wine 11)
+bottle d3d11.dll:      3.9 MB, strings: "DXVK adapter", "DxvkCommandList"
+                       = DXVK 2.x PE binaries (MIT FOSS, not D3DMetal)
+bottle dxgi.dll:       237 KB, DXVK companion
+DLL override:          *d3d11=native,builtin  (DXVK wins)
+Info.plist envs:       D3DMETAL=0 D3DMETAL_FORCE=0 MOLTENVKCX=1
+                       VK_ICD_FILENAMES=/opt/homebrew/opt/molten-vk/.../MoltenVK_icd.json
+                       VKD3D_CONFIG=force_static_cbv VKD3D_FEATURE_LEVEL=12_2
+Registry [Software\Wine\Direct3D]:
+                       csmt=1, renderer="gl", VideoMemorySize=65536
+lib/external/:         (no D3DMetal.framework, no libd3dshared.dylib)
+```
+
+**Steambuild 32 64bit Direct3D.app:**
+
+Similar but `D3DMETAL_FORCE=1`. Two PK variants representing the
+two routes: DXVK (FOSS, default) and D3DMetal (proprietary, alt).
+
+**Live test:** Launched the DXVK variant. Steam UI rendered
+correctly. User confirmed: their login active, SN2 already
+appears installed. No GPU process crashes. No black window.
+
+### What this corrects
+
+ADR-0015's audit (session 1) claimed "most of the integration
+chain is already in CodeWeavers' source" and chose D3DMetal-
+forwarding as the obvious path. The premise was unmeasured: I
+assumed every working macOS Wine stack used D3DMetal, because
+CrossOver's `d3d11.so` ships under that name and Apple's GPTK
+ships D3DMetal too.
+
+The measured reality:
+
+- **PK uses DXVK 2.x, not D3DMetal.** Wine 10, not Wine 11.
+- **No CW HACK 22434 env var.** No libd3dshared. No D3DMetal load.
+- **It just works** on this exact hardware running today's
+  macOS and today's Steam.
+- The only entrants we know that *require* D3DMetal are
+  CrossOver (proprietary) and PK's "Direct3D" variant (which is
+  optional). Whisky used Wine 7 + D3DMetal and is too old. GPTK
+  is Wine 7 + D3DMetal and CEF needs Wine 9+, so GPTK alone
+  doesn't work for Steam either.
+
+So calimocho's whole D3DMetal direction was built on a wrong
+premise about what "the FOSS Mac Wine ecosystem" actually does.
+The right answer is **DXVK + Wine 10 + MoltenVK**, not
+**Wine 11 + D3DMetal shim**.
+
+### Decision
+
+ADR-0018 (proposed) documents the pivot: drop D3DMetal shim work,
+adopt PK-style stack. Open question gating acceptance: does PK +
+SN2 recipe (vcrun2022 + UE4SS proxy + Sentry hack + AVX + Win11)
+actually run SN2 in-game, or does PK get stuck at the same wall
+beyond Steam UI?
+
+**Next test (continuing this session):** symlink CrossOver's
+existing SN2 install into PK's bottle (no 15 GB redownload),
+run PK winetricks vcrun2022, launch SN2 via PK Steam, observe.
+
+### Files changed this session 3
+
+- `docs/ADR/0018-pivot-to-dxvk-wine10-foss-stack-proposal.md`: new (Proposed status)
+- `docs/build-log.md`: this entry
+
+## 2026-06-01 (cont'd) — Phase 3 session 4: PK SN2 tests close the question
+
+### Symlinked CrossOver's SN2 install into PK bottles
+
+15 GB SN2 install lives at
+`~/Library/Application Support/CrossOver/Bottles/Steam/.../Subnautica2`.
+PK bottles symlink it in to avoid redownload. Test only; both PK
+bottles restored to original state at session end.
+
+### Test E.1 — SN2 via PK DXVK variant (vkd3d-proton + MoltenVK)
+
+Launched Steam UI → Library → SN2 Play. SN2 launched
+(vcrun runtime present), reached RHI init, then:
+
+```text
+LogRHI: Using Default RHI: D3D12
+LogRHI: Using Highest Feature Level of D3D12: SM6
+LogD3D12RHI: D3D12CreateDevice failed with code 0x80070057  (E_INVALIDARG)
+LogD3D12RHI: Failed to choose a D3D12 Adapter
+LogD3D12RHI: Adapter was not found
+LogRHI: RHI D3D12 is not supported on your system
+Message dialog: "DirectX 12 is not supported on your system."
+HandleUnsupportedRHI.D3D12 -> RequestExitWithStatus(1)
+```
+
+Then UE5 CrashReportClient popped up. Confirmed via screenshot
+that **regular Win32 desktop windows render correctly under
+PK** — the black-window class is D3D11/CEF-specific, not a
+Wine-level rendering bug.
+
+### Test E.2 — `-dx11` override
+
+UE5 normally accepts `-dx11` to force the D3D11 RHI. SN2 shipping
+build crashed instead with:
+
+```text
+Fatal error: Unable to launch with RHI 'D3D11' since the project
+is not configured to support it.
+```
+
+**SN2's UE5 build was packaged without the D3D11 RHI module**.
+There is no client-side workaround; SN2 is D3D12-only on Windows.
+
+### Test E.3 — SN2 via PK Direct3D variant (Apple D3DMetal d3d12)
+
+PK ships a second app ("Steambuild 32 64bit Direct3D") that sets
+`D3DMETAL_FORCE=1`. This routes D3D12 through Apple's
+D3DMetal.framework instead of vkd3d-proton. Bypassed Steam's vcrun
+prompt by launching `Subnautica2-Win64-Shipping.exe` directly via
+the bottle's wine64.
+
+```text
+LogD3D12RHI: D3D12CreateDevice failed with code 0x80004005  (E_FAIL)
+LogD3D12RHI: DirectX Agility SDK runtime not found
+LogD3D12RHI: Failed to choose a D3D12 Adapter
+LogRHI: RHI D3D12 is not supported on your system
+```
+
+Different error code (E_FAIL vs E_INVALIDARG) confirms the
+D3DMetal path was taken, but D3DMetal's d3d12 implementation
+also can't produce an adapter that satisfies UE5/SM6.
+
+### Verdict: SN2 on M1 Max via any FOSS-or-FOSS-adjacent stack
+
+| Stack | Steam UI | SN2 in-game |
+|---|---|---|
+| CrossOver 26 (proprietary `d3d12.so`) | works | works (with recipe) |
+| PK DXVK + vkd3d-proton + MoltenVK | works | D3D12 0x80070057 |
+| PK Direct3D + Apple D3DMetal | works | D3D12 0x80004005 |
+| calimocho any tested config | black | not reached |
+
+**No FOSS-only path on M1 Max produces a D3D12 adapter that UE5
+SM6 accepts today.** CrossOver does something proprietary in their
+`d3d12.so` that nobody in the public FOSS ecosystem has reproduced.
+
+### What this splits the project into
+
+**P1 — Steam UI (achievable today via DXVK pivot):**
+
+PK proves Wine 10 + DXVK 2.x + MoltenVK + `renderer=gl` renders
+Steam UI on this hardware. Calimocho can adopt this for the
+engine layer. ADR-0018 (Proposed) is the pivot blueprint for
+this layer; it would close SPECS A1.4 / A2.4 / Issue #4 for the
+Steam-browsing experience.
+
+**P2 — SN2 in-game (upstream-blocked, ADR-0017 known-blocker):**
+
+D3D12 on Apple Silicon for UE5 SM6 games is not solved outside
+CrossOver. Not narrowly leadable per ADR-0017 — this is upstream
+vkd3d-proton + MoltenVK work, beyond a Phase 3 calimocho task.
+
+### Honesty per AGENTS rule #4
+
+A calimocho that closes P1 but not P2 ships "you can see your
+Steam library, but you can't play the game" — which the README
+decision table can honestly state ("for SN2 itself, buy
+CrossOver"). That is the ADR-0017 known-blocker form of honesty.
+Whether to ship P1 alone is a separate strategic call (in
+discussion).
+
+### Files changed this session 4
+
+- `docs/build-log.md`: this entry
+- (No code or other doc changes; PK bottles restored to original
+  state, no calimocho-side state touched)

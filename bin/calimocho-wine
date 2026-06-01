@@ -45,19 +45,16 @@ GPTK_EXTERNAL="$ENGINE/lib/external"
 # them. Users who DO want .NET can override:
 #   WINEDLLOVERRIDES= calimocho-wine ...
 #
-# D3D11/DXGI: native (DXVK) for Steam CEF. We tested both routes
-# against this Wine 11 build:
-#   - native (DXVK):   0 GPU subprocess crashes; ANGLE still can't
-#                      query DXGI driver version, so CEF falls back
-#                      to GLES 2.0 (renders, but compositor is degraded)
-#   - builtin (wined3d -> winemac -> D3DMetal): 9 GPU subprocess
-#                      STATUS_BREAKPOINT crashes per launch (the
-#                      D3DMetal callback path has a separate ABI issue
-#                      that CW HACK 22434 does not cover)
-# DXVK is therefore the lesser evil today. Porting Kit's wine 10.0
-# builtin route works for them; ours doesn't, possibly a wine 11
-# regression. To debug, set WINEDLLOVERRIDES=...=b at runtime.
-export WINEDLLOVERRIDES="${WINEDLLOVERRIDES-mscoree,mshtml=;d3d11,dxgi=n}"
+# D3D11/DXGI: builtin — loads our calimocho-built d3d11.dll shim that
+# forwards D3D11CreateDevice into Apple's bundled D3DMetal.framework
+# (ADR-0015). Pairing with CW HACK 22434 + CX_APPLEGPTK_LIBD3DSHARED_PATH
+# (below) gives a working D3D11 device on M-series under Rosetta 2.
+# Note: the bottle's drive_c/windows/system32/d3d11.dll and dxgi.dll
+# must exist (Wine 11's builtin loader expects the file to be present
+# in the prefix); copy them from $ENGINE/lib/wine/x86_64-windows/ when
+# preparing the bottle. To use native DXVK instead, set
+# WINEDLLOVERRIDES=...d3d11,dxgi=n at runtime.
+export WINEDLLOVERRIDES="${WINEDLLOVERRIDES-mscoree,mshtml=;d3d11,dxgi=b}"
 
 # Make Wine's runtime dlopen find the bundled libfreetype/libgnutls/
 # libdbus/libSDL2/etc. Also include GPTK's own framework dir for
