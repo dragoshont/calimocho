@@ -214,6 +214,26 @@ static const char *d3dmetal_candidates[] = {
 static void d3dmetal_init_do(void)
 {
     const char *env = getenv("CALIMOCHO_D3DMETAL_PATH");
+    /* Experiment B (ADR-0016 falsification): record whether CW HACK 22434's
+     * env var actually propagated to this (possibly CEF-spawned) process,
+     * and whether libd3dshared.dylib is dlopen-able from here. If the env
+     * var is unset in a CEF subprocess but set in the parent, the bug is
+     * env propagation, not adapter ABI. */
+    {
+        const char *cw = getenv("CX_APPLEGPTK_LIBD3DSHARED_PATH");
+        d3dmetal_log("init: pid=%d ppid=%d CX_APPLEGPTK_LIBD3DSHARED_PATH=%s",
+                     (int)getpid(), (int)getppid(),
+                     cw && *cw ? cw : "<unset>");
+        if (cw && *cw) {
+            void *h = dlopen(cw, RTLD_LAZY | RTLD_NOLOAD);
+            d3dmetal_log("init: libd3dshared already-loaded probe handle=%p", h);
+            if (!h) {
+                h = dlopen(cw, RTLD_LAZY | RTLD_LOCAL);
+                d3dmetal_log("init: libd3dshared fresh dlopen handle=%p err=%s",
+                             h, h ? "(none)" : dlerror());
+            }
+        }
+    }
     d3dmetal_log("init: probing D3DMetal (CALIMOCHO_D3DMETAL_PATH=%s)",
                  env && *env ? env : "<unset>");
     if (env && *env)
@@ -288,8 +308,32 @@ static NTSTATUS d3dmetal_create_device(void *args)
     d3dmetal_log("create_device: ENTER adapter=%p driver_type=%u flags=0x%x levels_count=%u sdk_version=%u",
                  p->adapter, p->driver_type, p->flags, p->feature_levels_count, p->sdk_version);
 
-    p->hr = d3dmetal_D3D11CreateDevice(p->adapter,
-                                       p->driver_type,
+    /* Experiment A (ADR-0016 falsification): if CALIMOCHO_D3D11_FORCE_NULL_ADAPTER=1,
+     * force adapter=NULL + driver_type=HARDWARE regardless of what the caller passed.
+     * On a single-GPU M-series Mac there is only one possible adapter anyway, so this
+     * is a safe diagnostic override. If Steam UI paints with this set, the dxgi
+     * adapter mismatch theory is confirmed. If it still hangs at the same point, the
+     * dxgi shim is not the right fix.
+     *
+     * D3D_DRIVER_TYPE_HARDWARE = 1 (per d3dcommon.h). Hard-coded to avoid pulling
+     * the header here. */
+    void *adapter_arg     = p->adapter;
+    unsigned driver_arg   = p->driver_type;
+    {
+        const char *force = getenv("CALIMOCHO_D3D11_FORCE_NULL_ADAPTER");
+        if (force && *force == '1') {
+            d3dmetal_log("create_device: FORCE_NULL_ADAPTER active; orig adapter=%p driver_type=%u",
+                         adapter_arg, driver_arg);
+            adapter_arg = NULL;
+            driver_arg  = 1; /* D3D_DRIVER_TYPE_HARDWARE */
+        }
+    }
+
+    d3dmetal_log("create_device: about to call D3DMetal CreateDevice@%p adapter=%p driver=%u",
+                 d3dmetal_D3D11CreateDevice, adapter_arg, driver_arg);
+
+    p->hr = d3dmetal_D3D11CreateDevice(adapter_arg,
+                                       driver_arg,
                                        p->software,
                                        p->flags,
                                        p->feature_levels,
@@ -298,6 +342,8 @@ static NTSTATUS d3dmetal_create_device(void *args)
                                        p->device_out,
                                        p->feature_level_out,
                                        p->immediate_context_out);
+
+    d3dmetal_log("create_device: D3DMetal CreateDevice returned");
 
     d3dmetal_log("create_device: RETURN hr=0x%08x device=%p feature_level=0x%x context=%p",
                  (unsigned)p->hr,

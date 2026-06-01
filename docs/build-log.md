@@ -482,3 +482,96 @@ adapter pointer must originate from D3DMetal end-to-end.
 - `out/engine/bin/calimocho-wine`: synced
 - `docs/ADR/0016-dxgi-shim-required-for-cef.md`: new
 - `docs/build-log.md`: this entry
+
+## 2026-06-01 (cont'd) — Phase 3 session 2: four-experiment falsification round
+
+Ran four diagnostic experiments before committing to ADR-0016's
+direction. Each either falsifies a hypothesis or narrows the cause.
+
+### Experiment B: env propagation
+
+Added env probe + `dlopen(..., RTLD_NOLOAD)` for libd3dshared at
+shim init. In Steam's CEF GPU subprocess (pid 58358):
+
+```text
+init: pid=58358 ppid=1 CX_APPLEGPTK_LIBD3DSHARED_PATH=...libd3dshared.dylib
+init: libd3dshared already-loaded probe handle=0x77a380
+```
+
+Env propagates. libd3dshared is loaded. **CW HACK 22434 wiring is
+intact in the subprocess.** Falsified.
+
+### Experiment A: FORCE_NULL_ADAPTER
+
+Shim override that substitutes `(NULL, HARDWARE)` for the caller's
+`(adapter, driver_type)`. With it set, D3DMetal CreateDevice
+returns hr=S_OK FL 11.1 device in 391ms.
+
+But Steam still goes black with a NEW error one layer up:
+
+```text
+SwapChain11.cpp:636 Could not create additional swap chains, HRESULT: 0x887A0004
+eglCreateWindowSurface failed with error EGL_BAD_ALLOC
+```
+
+DXGI swap chain creation against a D3DMetal device fails because
+wine's builtin `dxgi.dll` doesn't recognize it. The whole
+**D3D11+DXGI stack must be coherent**.
+
+### Experiment: Apple's complete drop-in (deep dive per request)
+
+Replaced our half-shim with Apple's GPTK `d3d11.dll` + `dxgi.dll`
++ `d3d11.so` + `dxgi.so` + Apple's `libd3dshared.dylib` +
+Apple-signed `D3DMetal.framework`.
+
+Key layout discovery: Apple's `d3d11.so`, `dxgi.so`, `d3d10.so`,
+`d3d12.so` are all **symlinks to one file**:
+`lib/external/libd3dshared.dylib`. First attempt copied them as
+regular files; `@loader_path` then pointed at the wrong directory
+and D3DMetal couldn't resolve. After redoing with symlinks:
+
+- 0 "Failed to dlopen D3DMetal" assertions (was 3 per launch)
+- D3DMetal loads cleanly from `@rpath/D3DMetal.framework/D3DMetal`
+- Steam still black, with new error:
+
+```text
+ERROR:gpu_process_host.cc(1002) GPU process exited unexpectedly:
+                                 exit_code=-1073741819
+```
+
+`0xC0000005` = STATUS_ACCESS_VIOLATION. Apple's libd3dshared was
+built against CodeWeavers' Wine 7.7 ntdll trampoline layout. Our
+Wine 11 has the equivalent functions (env var is set, trampolines
+present) but the ABI offsets/layouts have drifted enough that the
+ms_abi callbacks corrupt memory rather than landing where
+libd3dshared expects.
+
+**Apple drop-in not viable** without a matching CodeWeavers Wine 7.7
+runtime — which would mean shipping a 3-year-old Wine and giving up
+all the CEF/Steam fixes Wine 11 has. Not an acceptable trade.
+
+### Verdict
+
+ADR-0016 stands: build our own dxgi.dll D3DMetal shim symmetric to
+the d3d11 shim. It's the only path that:
+
+1. Routes adapter pointers through D3DMetal end-to-end
+2. Stays on our own Wine 11 ntdll trampolines (CW HACK 22434 wired
+   to our binary, not Apple's)
+3. Is maintainable across CodeWeavers source rebases without
+   pulling 3-year-old binaries
+
+### Engine reset
+
+Restored our calimocho-shim baseline (`d3d11.dll`+`dxgi.dll` PE +
+`d3d11.so` ELF). Removed experimental symlinks and Apple PE
+copies. Re-signed. Bottle's `system32`/`syswow64` still have our
+shim DLLs copied from the engine.
+
+### Files changed this session 2
+
+- `patches/wine/files/d3d11/d3d11_d3dmetal_unix.c`: added env
+  probe (Experiment B) and FORCE_NULL_ADAPTER override
+  (Experiment A) for production use as diagnostic levers
+- `docs/ADR/0016-dxgi-shim-required-for-cef.md`: extended with
+  four-experiment evidence chain
