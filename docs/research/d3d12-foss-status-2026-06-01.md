@@ -18,7 +18,27 @@
 
 ## TL;DR
 
-(filled in last)
+After 7 sections of research, the morning's verdict ("project
+upstream-blocked") needs amending:
+
+- **DXMT** does not do D3D12. Out of scope for SN2. Closes Steam UI
+  question (P1).
+- **vkd3d-proton** officially unsupported on MoltenVK per K0bin
+  (Feb 2024). Stale: based on a MoltenVK version since superseded.
+- **MoltenVK 1.2.10 (Jul 2024)** closed the 1M-bindless gap that
+  vkd3d-proton cited as blocking. Nobody seems to have retested
+  vkd3d-proton against it.
+- **Mesh shaders, ray tracing** still missing from MoltenVK; **but
+  Apple's D3DMetal D3D12 layer has RT** (`D3DM_SUPPORT_DXR=1`,
+  default off on M1/M2).
+- **CrossOver's proprietary `d3d12.so`** is likely a wrapped
+  vkd3d-proton fork; we can't see the source.
+- **PK / GPTK / CrossOver ship identical D3DMetal binaries**. We
+  are already on the latest.
+- **Recommendation**: one more 5-minute test before accepting any
+  "blocked" verdict — retry SN2 in PK Direct3D bottle with
+  `D3DM_SUPPORT_DXR=1`, `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=2`,
+  `D3DM_ENABLE_METALFX=1`. See Synthesis below for exact env.
 
 ---
 
@@ -307,17 +327,200 @@ documented by community.
 
 ## 7. Apple GPTK 3.x D3DMetal — what we have vs latest
 
-(pending research)
+**Researched:** 2026-06-01 from Apple's "Evaluation environment for
+Windows games 3.0" DMG, mounted at
+`/Volumes/Evaluation environment for Windows games 3.0/`, and
+`/Volumes/Game Porting Toolkit/`.
 
-Plan: find Apple's latest GPTK release notes. Compare D3DMetal
-version we bundle (from GPTK 3.0-3, March 2026) with whatever's
-current as of June 2026.
+### Direct from Apple's own Read Me
+
+Quoting `/Volumes/Evaluation environment for Windows games 3.0/Read Me.rtf`
+verbatim (Nov 7, 2025 release):
+
+> "This setting causes the CPU instruction translation layer to publish
+> cpuid information ... `D3DM_SUPPORT_DXR` - **Defaults to 0 (OFF) on
+> M1 & M2 Macs, and to 1 (ON) for M3 & later Macs.** Setting this
+> environment variable to 1 (ON) enables **DirectX Raytracing (aka DXR)
+> features in D3DMetal's DirectX 12 translation layer**, so games
+> querying for DXR support will find the support level and expected
+> interfaces of DXR."
+
+So **Apple's D3DMetal does include a DirectX 12 translation layer**,
+including DXR (ray tracing). It's **off by default on M1/M2 because
+M1/M2 lack hardware ray tracing**; we have to opt in.
+
+### What we have installed vs the DMG redist
+
+Both D3DMetal binaries are byte-identical:
+
+```text
+installed:  5,263,744 bytes  Nov 14 2025  /Applications/Game Porting Toolkit.app/.../D3DMetal
+DMG redist: 5,263,744 bytes  Nov 14 2025  /Volumes/.../redist/lib/external/.../D3DMetal
+```
+
+And libd3dshared.dylib is also identical (95,952 bytes, Oct 9 2025).
+CrossOver ships the same files at `/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/lib64/apple_gptk/`
+per the Read Me's CrossOver upgrade instructions.
+
+**We are already on the latest Apple D3DMetal.** Our SN2 D3D12
+failure earlier in this session used the latest version. So the
+D3D12 failure isn't a "we have an old version" problem.
+
+### Environment variables we may not have tried
+
+From the Apple Read Me, the configurable knobs are:
+
+- `D3DM_SUPPORT_DXR` (0 = off, 1 = on) — **DEFAULTS OFF on M1/M2**.
+  Worth retrying SN2 on PK Direct3D with this forced to 1 even
+  though we're on M1 Max.
+- `D3DM_ENABLE_METALFX` (0/1) — enables DLSS→MetalFX translation on
+  macOS 26 Tahoe (which we have, 26.5).
+- `ROSETTA_ADVERTISE_AVX` (0/1) — already on in our setup.
+- `D3DM_DXIL_PROCESS_DEBUG_INFORMATION=1` — for debugger workflows.
+
+### Apple's native-porting position (the big-picture context)
+
+The Game Porting Toolkit DMG also ships
+`/Volumes/Game Porting Toolkit/gptk-sample/` — an 11-chapter
+tutorial showing developers how to **natively port** D3D12 games to
+Metal using:
+
+- `metal-cpp` — Apple's official C++ bindings to Metal
+- **Metal Shader Converter 3.0** (`.pkg` on the DMG, 38 MB) — Apple's
+  DXIL→AIR offline converter. Lets developers ship `.metallib` files
+  built from their existing HLSL pipelines.
+- Sample integrations for app lifecycle, input, audio, physics,
+  haptics, shader conversion, Metal rendering, Game Center,
+  CloudKit saves.
+
+**The DMG's primary purpose is enabling native ports, not running
+Windows binaries forever.** The D3DMetal D3D12 translation is
+explicitly called "evaluation environment" — Apple's pitch is "use
+this to see if your game *could* work on Mac, then port it natively".
+
+### What this means for our SN2 problem
+
+- Apple's D3DMetal D3D12 translation **is real and includes RT**.
+- But on M1/M2 hardware (no HW RT), it defaults to no-RT and may
+  reject games that hard-require RT capability for init.
+- UE5 SM6 may probe for RT during RHI init even if the game doesn't
+  use RT, and fail when capability isn't there.
+- **Try `D3DM_SUPPORT_DXR=1` on M1 Max + PK Direct3D + SN2** — this
+  may falsely advertise DXR (since the hardware doesn't have it)
+  and either let SN2 progress past the RHI gate, or crash later
+  when it tries to actually use RT. Either result is informative.
+
+### Verdict for calimocho
+
+We did not exhaust D3DMetal config options before declaring blocked.
+There is at least one concrete cheap test left:
+
+**`D3DM_SUPPORT_DXR=1` + SN2 in PK Direct3D bottle**, retrying the
+direct-exe launch with the symlinked CrossOver SN2 install.
+
+This is a 5-minute test. If it lets SN2 progress past the RHI init
+on an M1 Max (a machine that has no HW RT), the path forward is:
+adopt PK Direct3D's stack (Wine 10 + builtin d3d11 + Apple's
+D3DMetal D3D12 with DXR=1 + MoltenVK).
+
+Note: Apple's D3DMetal is non-FOSS but redistributable per the GPTK
+SLA (covered by [ADR-0011](../ADR/0011-ci-and-gptk-redistribution.md)).
+Per [ADR-0017](../ADR/0017-follow-when-foss-exists-lead-when-only-paid-exists.md),
+this is acceptable as "redistributable proprietary" — same category
+as MoltenVK before it was open-sourced, same as Apple's CoreAudio
+or Metal itself. Not pure FOSS but not paid either.
 
 ---
 
 ## Synthesis
 
-(filled in last)
+### The story so far
+
+This morning I declared the project blocked: "no FOSS or FOSS-adjacent
+path on M1 Max produces a D3D12 adapter UE5 SM6 accepts today."
+
+After thorough research today the verdict is more nuanced:
+
+### Three things we know now that we didn't this morning
+
+1. **MoltenVK 1.2.10 (Jul 2024) closed the 1M-bindless gap** that
+   vkd3d-proton cited as blocking in Feb 2024. The Metal 3
+   argument-buffer Tier 2 limit is 1M textures + buffers per stage on
+   M2+ (M1 Max may or may not — needs measurement). vkd3d-proton
+   hasn't been retested upstream against this newer MoltenVK.
+2. **Apple's D3DMetal has a D3D12 translation layer with ray tracing
+   support** (`D3DM_SUPPORT_DXR=1`), defaulted **off** on M1/M2
+   because hardware RT is M3+. Our SN2 D3D12 test today never set
+   this — RHI init may have failed simply because DXR capability
+   wasn't advertised when SN2 probed it.
+3. **PK ships the same D3DMetal binary** as CrossOver and Apple's
+   latest. The differentiator between PK-Direct3D and CrossOver is
+   not the D3DMetal version; it's the Wine-side integration around
+   it.
+
+### Three things we still don't know
+
+1. Does forcing `D3DM_SUPPORT_DXR=1` let SN2 init on M1 Max? (5-min test)
+2. Has anyone in 2025-2026 actually published a working FOSS UE5
+   SM6 path on Apple Silicon? Web search inconclusive.
+3. What exactly does CrossOver's proprietary `d3d12.so` do over
+   D3DMetal that PK Direct3D's same-D3DMetal+Wine doesn't? No public
+   source available.
+
+### Recommended next action (concrete, free, informative either way)
+
+Retry the SN2-via-PK-Direct3D test from session 4 with these
+additional env vars set, all documented in Apple's official Read Me:
+
+```bash
+D3DMETAL=0 \
+D3DMETAL_FORCE=1 \
+D3DM_SUPPORT_DXR=1 \
+D3DM_ENABLE_METALFX=1 \
+ROSETTA_ADVERTISE_AVX=1 \
+MOLTENVKCX=1 \
+MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=2 \
+WINEMSYNC=1 WINEESYNC=1 \
+WINEPREFIX="$PK_DIRECT3D_PREFIX" \
+arch -x86_64 wine64 Subnautica2-Win64-Shipping.exe
+```
+
+(`MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=2` is the MoltenVK
+"ALWAYS" enumeration value per `mvk_private_api.h` from MoltenVK
+1.2.10+.)
+
+If this lets SN2 init D3D12, we have a path forward via PK-style
+stack + new env config. We can pivot ADR-0018 to include this
+configuration.
+
+If it still fails, then we have an honestly-exhausted picture
+documenting what doesn't work and **why** — different verdict from
+this morning's "I asserted blocking from incomplete homework."
+
+### What about CrossOver's secret sauce?
+
+Best public guess (subagent research + our own inspection):
+CrossOver's proprietary `d3d12.so` is likely glue code wrapping a
+patched vkd3d-proton fork plus per-game shims, sitting on top of
+the same MoltenVK and Apple D3DMetal everyone else has. Not a
+fundamentally different translator. Not something calimocho can
+reproduce without reverse engineering.
+
+This means **the achievable FOSS-or-FOSS-adjacent ceiling is
+"PK Direct3D + correct env config"**, not "match CrossOver". And
+that ceiling may or may not include SN2 — to be determined by the
+test above.
+
+### What this changes about ADR-0018 and project direction
+
+The "pivot to PK stack for Steam UI, accept SN2 known-blocker"
+framing from ADR-0018 may be incomplete. If the next test succeeds,
+the pivot covers both P1 (Steam UI) AND P2 (SN2 in-game) by
+adopting PK Direct3D's stack + the correct Apple-documented env
+config we didn't try.
+
+If the test fails, ADR-0018 stands as the partial-shipping option,
+with a more honest "we tried all documented Apple knobs" footnote.
 
 ---
 
