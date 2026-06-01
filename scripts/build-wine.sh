@@ -55,6 +55,11 @@ export PKG_CONFIG_LIBDIR="$BREW_PREFIX/lib/pkgconfig:$BREW_PREFIX/share/pkgconfi
 export CPPFLAGS="-I$BREW_PREFIX/include -I$BREW_PREFIX/opt/freetype/include/freetype2 -I$BREW_PREFIX/opt/libpng/include/libpng16"
 export LDFLAGS="-L$BREW_PREFIX/lib"
 
+# Make pkg-config find gstreamer, ffmpeg, etc. installed via x86_64 brew.
+# Without this, configure silently skips features that need pkg-config probes.
+# Keg-only deps (libffi, zlib, bzip2) are required transitively by gstreamer/freetype/gnutls.
+export PKG_CONFIG_PATH="$BREW_PREFIX/lib/pkgconfig:$BREW_PREFIX/opt/gstreamer/lib/pkgconfig:$BREW_PREFIX/opt/ffmpeg/lib/pkgconfig:$BREW_PREFIX/opt/molten-vk/lib/pkgconfig:$BREW_PREFIX/opt/libffi/lib/pkgconfig:$BREW_PREFIX/opt/zlib/lib/pkgconfig:$BREW_PREFIX/opt/bzip2/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+
 ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 log() { echo "[$(ts)] build-wine: $*" | tee -a "$LOG" >&2; }
 
@@ -81,12 +86,15 @@ if [[ ! -f "$BUILD/Makefile" ]]; then
       --disable-tests \
       --with-mingw \
       --with-gnutls \
-      --without-gstreamer \
+      --with-freetype \
+      --with-sdl \
+      --with-vulkan \
+      --with-gstreamer \
+      --with-coreaudio \
+      --with-pcap \
       --without-cms \
-      --without-coreaudio \
       --without-fontconfig \
-      --without-pcap \
-      --without-vulkan \
+      --without-inotify \
       --without-vkd3d \
       --without-opencl \
   ) >>"$LOG" 2>&1

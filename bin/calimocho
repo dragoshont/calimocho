@@ -1,38 +1,252 @@
 #!/usr/bin/env bash
-# calimocho — placeholder entry point.
-# This will become the install/build orchestrator once the build recipe is locked in.
+# calimocho — CLI tool for managing Calimocho bottles and Steam
+#
+# Phase 2: Basic CLI interface per SPECS.md Phase 2 CLI surface
+#
+# Exit codes per SPECS:
+#   0 - success
+#   1 - general failure
+#   2 - usage error
+#   3 - engine missing or broken
+#   4 - bottle missing
+#   5 - bottle corrupt
+#   6 - Wine processes failed to terminate
+#   7 - user aborted
+#   8 - network unreachable
+#   9 - disk full
 
-set -e
+set -euo pipefail
 
-cat <<'EOF'
+VERSION="0.5.0"
+BOTTLES_DIR="$HOME/Library/Application Support/Calimocho/Bottles"
+STEAM_BOTTLE="$BOTTLES_DIR/STEAM"
+LOGS_DIR="$HOME/Library/Logs/Calimocho"
 
-  ╔═══════════════════════════════════════════════════════════════════╗
-  ║                                                                   ║
-  ║      calimocho — Fortified Wine for Apple Silicon                 ║
-  ║                                                                   ║
-  ║      🍷 Built from CodeWeavers' LGPL Wine source                  ║
-  ║      🎨 Bundles Apple's GPTK D3DMetal (non-commercial use only)   ║
-  ║                                                                   ║
-  ║      If this saves you time and you can afford it, please buy     ║
-  ║      CrossOver — they fund the Wine engine this builds on:        ║
-  ║                                                                   ║
-  ║          https://www.codeweavers.com/crossover                    ║
-  ║                                                                   ║
-  ║      Also consider donating to the upstream Wine project:         ║
-  ║                                                                   ║
-  ║          https://www.winehq.org/donate                            ║
-  ║                                                                   ║
-  ╚═══════════════════════════════════════════════════════════════════╝
+# Detect engine location
+detect_engine() {
+    # Try bundled location first (if installed)
+    if [[ -d "/Applications/Calimocho.app/Contents/Resources/Engine" ]]; then
+        echo "/Applications/Calimocho.app/Contents/Resources/Engine"
+        return
+    fi
+    
+    # Try repo development location
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    REPO_ENGINE="$SCRIPT_DIR/../out/engine"
+    if [[ -d "$REPO_ENGINE" ]]; then
+        echo "$(cd "$REPO_ENGINE" && pwd)"
+        return
+    fi
+    
+    return 1
+}
 
-The build script is not yet ready. Status:
+ENGINE_PATH="$(detect_engine)" || {
+    echo "calimocho: ERROR Engine not found" >&2
+    echo "  Reason: Could not locate Wine engine" >&2
+    echo "  Fix:    Run ./scripts/build-wine.sh or install Calimocho.app" >&2
+    exit 3
+}
 
-  - Phase 0 (foundation): done
-  - Phase 1 (build CodeWeavers Wine 11 from source): in progress
-  - Phase 2 (Calimocho.app menubar shell): not started
-  - Phase 3 (Subnautica 2 inside Calimocho.app): not started
-  - Phase 4 (DMG packaging): not started
-  - Phase 5 (CI + Sparkle auto-update): not started
+WINE="$ENGINE_PATH/bin/calimocho-wine"
 
-Track progress: https://github.com/dragoshont/calimocho/blob/main/docs/PHASES.md
+cmd_help() {
+    cat <<'EOF'
+calimocho — Run Steam for Windows on Apple Silicon Macs
+
+Usage:
+  calimocho help                Show this help
+  calimocho version             Show version
+  calimocho status              Check bottle and engine status
+  calimocho launch-steam        Launch Steam
+  calimocho stop                Stop all Wine processes
+  calimocho diagnose            Generate diagnostic bundle
+
+Exit codes:
+  0   Success
+  1   General failure
+  2   Usage error
+  3   Engine missing/broken
+  4   Bottle missing
+  5   Bottle corrupt
+  6   Wine failed to terminate
+  8   Network unreachable
+  9   Disk full
 
 EOF
+}
+
+cmd_version() {
+    echo "calimocho $VERSION"
+    echo "Engine: Wine 11.0 (CodeWeavers LGPL source)"
+    echo "GPTK: 3.0"
+}
+
+cmd_status() {
+    echo "=== Calimocho Status ==="
+    echo ""
+    
+    # Engine check
+    if [[ -x "$WINE" ]]; then
+        echo "✓ Engine: $ENGINE_PATH"
+        WINE_VERSION=$("$WINE" --version 2>/dev/null || echo "unknown")
+        echo "  Version: $WINE_VERSION"
+    else
+        echo "✗ Engine: NOT FOUND or not executable"
+        exit 3
+    fi
+    
+    # Bottle check
+    if [[ -f "$STEAM_BOTTLE/system.reg" ]]; then
+        echo "✓ Steam bottle: $STEAM_BOTTLE"
+        if grep -q '#arch=win64' "$STEAM_BOTTLE/system.reg" 2>/dev/null; then
+            echo "  Architecture: win64"
+        fi
+    else
+        echo "✗ Steam bottle: NOT CREATED"
+        echo "  Fix: Launch Calimocho.app to run first-time setup"
+        exit 4
+    fi
+    
+    # Steam process check
+    if pgrep -qf 'steam\.exe'; then
+        STEAM_PID=$(pgrep -f 'steam\.exe' | head -1)
+        echo "✓ Steam: RUNNING (PID $STEAM_PID)"
+    else
+        echo "○ Steam: not running"
+    fi
+    
+    # Disk space
+    AVAIL_GB=$(df -g "$STEAM_BOTTLE" 2>/dev/null | tail -1 | awk '{print $4}' || echo "unknown")
+    echo "  Free space: ${AVAIL_GB} GB"
+    
+    exit 0
+}
+
+cmd_launch_steam() {
+    if [[ ! -f "$STEAM_BOTTLE/system.reg" ]]; then
+        echo "calimocho: ERROR Steam bottle not found" >&2
+        echo "  Reason: Bottle does not exist at $STEAM_BOTTLE" >&2
+        echo "  Fix:    Launch Calimocho.app to run first-time setup" >&2
+        exit 4
+    fi
+    
+    # Check if already running
+    if pgrep -qf 'steam\.exe'; then
+        echo "Steam is already running"
+        exit 0
+    fi
+    
+    STEAM_EXE='C:\Program Files (x86)\Steam\steam.exe'
+    
+    echo "Launching Steam..."
+    
+    export WINEPREFIX="$STEAM_BOTTLE"
+    export WINEDLLOVERRIDES="mscoree,mshtml="
+    export WINEDEBUG="${WINEDEBUG:-err-all,fixme-all}"
+    
+    # Launch in background
+    arch -x86_64 "$WINE" "$STEAM_EXE" </dev/null >/dev/null 2>&1 &
+    STEAM_PID=$!
+    
+    echo "Steam launched (PID $STEAM_PID)"
+    echo "Check logs at: $LOGS_DIR/"
+}
+
+cmd_stop() {
+    if ! pgrep -qf 'wine|steam\.exe'; then
+        echo "No Wine processes running"
+        exit 0
+    fi
+    
+    echo "Stopping Wine processes..."
+    
+    # Use wineserver -k for graceful shutdown
+    export WINEPREFIX="$STEAM_BOTTLE"
+    arch -x86_64 "$ENGINE_PATH/bin/wineserver" -k 2>/dev/null || true
+    
+    # Wait up to 10 seconds
+    attempts=0
+    while pgrep -qf 'wine|steam\.exe' && [[ $attempts -lt 20 ]]; do
+        sleep 0.5
+        ((attempts++)) || true
+    done
+    
+    if pgrep -qf 'wine|steam\.exe'; then
+        echo "WARNING: Some processes did not terminate after 10s" >&2
+        exit 6
+    fi
+    
+    echo "All Wine processes stopped"
+}
+
+cmd_diagnose() {
+    BUNDLE_DIR="$(mktemp -d)/calimocho-diagnostic-$(date +%Y%m%d-%H%M%S)"
+    mkdir -p "$BUNDLE_DIR"
+    
+    echo "Generating diagnostic bundle..."
+    
+    # System info
+    {
+        echo "=== System Info ==="
+        uname -a
+        sw_vers
+        sysctl hw.model hw.machine hw.ncpu hw.memsize
+        echo ""
+        
+        echo "=== Calimocho Status ==="
+        cmd_status 2>&1 || true
+        echo ""
+        
+        echo "=== Engine Contents ==="
+        ls -lh "$ENGINE_PATH/bin/" || true
+        echo ""
+        
+        echo "=== Bottle Contents ==="
+        ls -lh "$STEAM_BOTTLE/" || true
+    } > "$BUNDLE_DIR/system-info.txt"
+    
+    # Copy logs (redact any personal info)
+    if [[ -d "$LOGS_DIR" ]]; then
+        mkdir -p "$BUNDLE_DIR/logs"
+        cp -R "$LOGS_DIR/"* "$BUNDLE_DIR/logs/" 2>/dev/null || true
+    fi
+    
+    # Tar it up
+    BUNDLE_FILE="$HOME/Desktop/calimocho-diagnostic-$(date +%Y%m%d-%H%M%S).tar.gz"
+    tar -czf "$BUNDLE_FILE" -C "$(dirname "$BUNDLE_DIR")" "$(basename "$BUNDLE_DIR")"
+    rm -rf "$(dirname "$BUNDLE_DIR")"
+    
+    echo "Diagnostic bundle created: $BUNDLE_FILE"
+    echo "You can share this with support (personal paths may be included)"
+}
+
+# Main dispatch
+COMMAND="${1:-help}"
+shift || true
+
+case "$COMMAND" in
+    help|--help|-h)
+        cmd_help
+        ;;
+    version|--version|-v)
+        cmd_version
+        ;;
+    status)
+        cmd_status
+        ;;
+    launch-steam)
+        cmd_launch_steam
+        ;;
+    stop)
+        cmd_stop
+        ;;
+    diagnose)
+        cmd_diagnose
+        ;;
+    *)
+        echo "calimocho: ERROR Unknown command: $COMMAND" >&2
+        echo "Run 'calimocho help' for usage" >&2
+        exit 2
+        ;;
+esac

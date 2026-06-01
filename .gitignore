@@ -1,6 +1,6 @@
 # Dirs
 build/
-sources/
+/sources/
 *.tar.gz
 *.tar.xz
 *.dmg
