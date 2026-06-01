@@ -291,3 +291,69 @@ WineHQ for the winemac.drv regression, calimocho cannot match
 CrossOver/PK rendering on this hardware. Phase 2 SHOULD ship without
 working Steam UI rendering and mark A1.4/A2.4 as KNOWN BLOCKER pending
 upstream Wine 11+ winemac.drv fixes.
+
+## 2026-06-01 (audit 4) — D3DMetal integration audit; design lands in ADR-0015
+
+Senior-engineer-style audit before writing any shim code, motivated
+by the concern that earlier scope estimates were anchored on
+assumptions, not data.
+
+Tools used: `nm -gU`, `otool -l`, Python `struct` for PE parsing,
+`capstone` for x86_64 disassembly (installed via Homebrew + venv),
+manual grep of wine 11 source.
+
+### Surprising finding
+
+CodeWeavers' LGPL release of wine 11 already ships
+`dlls/winemac.drv/d3dmetal.c` (436 lines) plus
+`d3dmetal_objc.{h,m}`. These provide a `DECLSPEC_EXPORT` callback
+table (`macdrv_functions`, 192 bytes, 24 entries) that
+`D3DMetal.framework` calls back into via `GetMacDRVFunctions()` in
+`libd3dshared.dylib`. Three out of four pieces of the integration
+chain are therefore already built into every calimocho engine
+bundle today.
+
+The missing piece is the **PE side** of `d3d11.dll`: a thin shim
+that funnels Microsoft D3D11 entry points (CEF's input) into
+D3DMetal's matching exports. ADR-0015 details the design.
+
+### Confidence findings
+
+- Apple's compiled `d3d11.dll` has **only 3 exports**. PE export
+  table read directly via Python.
+- `.text` is **662 bytes** total. Disassembled via capstone; every
+  export is a near-identical ~30-byte dispatcher matching wine's
+  `__wine_unix_call(handle, code, args)` pattern.
+- D3DMetal's `D3D11CreateDevice` prologue spills XMM6-XMM15 and
+  reads R9 → **compiled with `__attribute__((ms_abi))`** → calls
+  from a PE shim work directly without per-method vtable thunks.
+- Our `winemac.so` already exports `_macdrv_functions` —
+  `nm -gU` confirms.
+- Our `libd3dshared.dylib` exports `GetMacDRVFunctions()` —
+  `nm -g` confirms.
+
+### Scope, with confidence
+
+| Component | Lines | New / modified |
+|---|---|---|
+| d3d11 PE shim | ~150 | new file |
+| d3d11 ELF unix lib | ~120 | new file |
+| d3d11 private header | ~80 | new file |
+| d3d11 Makefile.in | 4 | modified |
+| d3d11_main.c | 2 | modified |
+| dxgi same trio | ~250 | new + modified |
+
+Total: ~600 lines of new C, plus 6 lines of modifications. Packaged
+as two patches in `patches/wine/`.
+
+### Packaging decision
+
+Patches (vs vendored fork submodule): patches win at this scope.
+Three patches don't justify a 500 MB submodule. Documented in
+ADR-0015.
+
+### Testing strategy
+
+Three tiers planned (Tier 1 unit on D3D11CreateDevice round-trip,
+Tier 2 swap chain Present(), Tier 3 visual NCC on Steam UI).
+Defined in ADR-0015 §Testing strategy.
