@@ -106,6 +106,25 @@ baselines, multi-OS test matrix.
   codeweavers.com/crossover/source), new Apple GPTK releases (via
   Gcenx/game-porting-toolkit), and Whisky un-archive (via repo
   archived field). Opens a deduped GitHub Issue per finding.
+- A1.5.9 `scripts/bundle-deps.sh` copies every dylib Wine `dlopen`s
+  at runtime (libfreetype, libgnutls, libdbus, libSDL2, plus
+  transitive deps) into `out/engine/lib/external/runtime/`. Each
+  dylib's license attribution lives in `THIRDPARTY/runtime-libs/README.md`.
+  Total bundle size ≤ 15 MB.
+- A1.5.10 `out/engine/bin/calimocho-wine` wrapper exists, sets
+  `WINEDLLOVERRIDES=mscoree,mshtml=`,
+  `DYLD_FALLBACK_LIBRARY_PATH=<engine>/lib/external/runtime:<engine>/lib/external:/usr/lib`,
+  and `WINEDEBUG=err-all,fixme-all` (all overridable), then
+  `exec`s the real wine binary. Phase 2's
+  `Calimocho.app/Contents/Resources/Engine/bin/calimocho-wine` is
+  the same script.
+- A1.5.11 **Self-contained verification**: copy `out/engine/`
+  to an arbitrary path (`/tmp/cal-iso/`), run
+  `WINEPREFIX=$(mktemp -d) /tmp/cal-iso/bin/calimocho-wine wineboot --init`
+  with `unset DYLD_LIBRARY_PATH DYLD_FALLBACK_LIBRARY_PATH`, prefix
+  initializes cleanly with `#arch=win64`, **no** /usr/local in the
+  dyld path. Proves the engine drops into Calimocho.app unchanged
+  and runs on Macs without Homebrew.
 
 ### Phase 1.5 followups (carried into Phase 2)
 
@@ -114,16 +133,9 @@ These remain deferred. Phase 2 cannot close until each is addressed:
 - **A1.4 Steam login** — deferred because it requires a Steam-installed
   bottle, which is the Phase 2 wizard's "Install Steam" deliverable.
   Retest A1.4 against the wizard-installed bottle as part of A2.4.
-- **Bundled runtime libraries** — `out/engine/bin/wine` currently
-  depends on `/usr/local/lib/libfreetype.6.dylib` and friends from the
-  x86_64 Homebrew. Calimocho.app must be self-contained:
-  `install_name_tool -change` SONAME paths to `@loader_path/../lib/external/`
-  and copy the dylibs in. Owned by A2.1 (build-app.sh).
-- **Engine env-var wrapper** — `WINEDLLOVERRIDES=mscoree,mshtml=`,
-  `DYLD_FALLBACK_LIBRARY_PATH=...`, and stale-wineserver cleanup are
-  currently set only by `test-engine.sh`. The shipping `bin/wine`
-  invocation in Calimocho.app must bake them in. Owned by A2.1
-  (EngineLauncher.swift).
+- ~~Bundled runtime libraries~~ — done in A1.5.9 + A1.5.10
+  (this Phase 1.5 PR).
+- ~~Engine env-var wrapper~~ — done in A1.5.10 (this Phase 1.5 PR).
 - **A1.3 visual NCC check** — A1.3 currently passes on "process alive
   after 6s", not on the SPECS-mandated screencapture + ImageMagick NCC
   ≥ 0.85 against `tests/visual/baseline/notepad-window.png`. The
