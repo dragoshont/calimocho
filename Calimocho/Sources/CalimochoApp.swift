@@ -72,19 +72,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Main action - changes based on state
         if !bottleManager!.steamBottleExists() {
-            menu.addItem(NSMenuItem(title: "▶ Install Steam", action: #selector(installSteam), keyEquivalent: ""))
+            let item = NSMenuItem(title: "▶ Install Steam", action: #selector(installSteam), keyEquivalent: "")
+            item.target = self
+            menu.addItem(item)
         } else if steamLauncher!.isSteamRunning() {
-            let bringToFrontItem = NSMenuItem(title: "Bring Steam to Front", action: #selector(bringSteamToFront), keyEquivalent: "")
-            menu.addItem(bringToFrontItem)
+            let item = NSMenuItem(title: "Bring Steam to Front", action: #selector(bringSteamToFront), keyEquivalent: "")
+            item.target = self
+            menu.addItem(item)
         } else {
-            menu.addItem(NSMenuItem(title: "▶ Open Steam for Windows", action: #selector(launchSteam), keyEquivalent: ""))
+            let item = NSMenuItem(title: "▶ Open Steam for Windows", action: #selector(launchSteam), keyEquivalent: "")
+            item.target = self
+            menu.addItem(item)
         }
         
         menu.addItem(NSMenuItem.separator())
         
         // Standard items
-        menu.addItem(NSMenuItem(title: "About Calimocho", action: #selector(showAbout), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Quit Calimocho", action: #selector(quitApp), keyEquivalent: "q"))
+        let aboutItem = NSMenuItem(title: "About Calimocho", action: #selector(showAbout), keyEquivalent: "")
+        aboutItem.target = self
+        menu.addItem(aboutItem)
+        
+        let quitItem = NSMenuItem(title: "Quit Calimocho", action: #selector(quitApp), keyEquivalent: "q")
+        quitItem.target = self
+        menu.addItem(quitItem)
         
         statusItem?.menu = menu
     }

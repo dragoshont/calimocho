@@ -71,7 +71,12 @@ class SteamLauncher {
         let logFileName = "wine-STEAM-\(dateFormatter.string(from: Date())).log"
         let logPath = logDir.appendingPathComponent(logFileName)
         
-        if let logFile = FileHandle(forWritingAtPath: logPath.path) ?? (try? FileHandle(forWritingTo: logPath)) {
+        // Open or create the log file. FileHandle(forWritingAtPath:) returns nil
+        // when the file does not yet exist, so create it first when needed.
+        if FileHandle(forWritingAtPath: logPath.path) == nil {
+            FileManager.default.createFile(atPath: logPath.path, contents: nil)
+        }
+        if let logFile = FileHandle(forWritingAtPath: logPath.path) {
             steamProcess?.standardOutput = logFile
             steamProcess?.standardError = logFile
         }

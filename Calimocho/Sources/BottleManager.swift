@@ -97,12 +97,16 @@ class BottleManager {
     func getWineEnvironment() -> [String: String] {
         var env = ProcessInfo.processInfo.environment
         env["WINEPREFIX"] = steamBottlePath.path
-        env["WINEDLLOVERRIDES"] = "mscoree,mshtml="
-        env["WINEDEBUG"] = "err-all,fixme-all"
-        
-        let enginePath = getEnginePath()
-        let runtimeLibs = enginePath.appendingPathComponent("lib/external/runtime").path
-        env["DYLD_FALLBACK_LIBRARY_PATH"] = "\(runtimeLibs):/usr/lib"
+        // Do NOT set WINEDLLOVERRIDES here. The calimocho-wine launcher script
+        // owns the full override string (mscoree,mshtml=;d3d11,dxgi=n) using
+        // ${VAR-default} syntax, which only substitutes when the variable is
+        // unset. Setting it here would suppress the d3d11,dxgi=n DXVK redirect
+        // and reintroduce the CEF GPU subprocess crashes.
+        // See docs/ADR/0013-cw-hack-22434-d3dshared-env.md for root-cause details.
+        // WINEDEBUG: allow the user's environment to take precedence.
+        if env["WINEDEBUG"] == nil {
+            env["WINEDEBUG"] = "err-all,fixme-all"
+        }
         
         return env
     }

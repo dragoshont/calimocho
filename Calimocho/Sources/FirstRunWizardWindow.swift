@@ -7,6 +7,7 @@
 
 import SwiftUI
 import AppKit
+import Darwin
 
 class FirstRunWizardWindow {
     private var window: NSWindow?
@@ -38,12 +39,19 @@ class FirstRunWizardWindow {
 
 struct FirstRunWizardView: View {
     @State private var currentStep = 0
-    @State private var systemCheckPassed = false
+    @State private var checkOSVersion = false
+    @State private var checkAppleSilicon = false
+    @State private var checkDiskSpace = false
+    @State private var checkNetwork = false
     @State private var isInstalling = false
     @State private var installProgress: Double = 0.0
     @State private var installStatusMessage = ""
     @State private var installError: String?
     @State private var installComplete = false
+    
+    private var systemCheckPassed: Bool {
+        checkOSVersion && checkAppleSilicon && checkDiskSpace && checkNetwork
+    }
     
     let onComplete: (Bool) -> Void
     
@@ -67,7 +75,12 @@ struct FirstRunWizardView: View {
                 case 0:
                     WelcomeStep()
                 case 1:
-                    SystemCheckStep(passed: $systemCheckPassed)
+                    SystemCheckStep(
+                        checkOSVersion: $checkOSVersion,
+                        checkAppleSilicon: $checkAppleSilicon,
+                        checkDiskSpace: $checkDiskSpace,
+                        checkNetwork: $checkNetwork
+                    )
                 case 2:
                     InstallPromptStep()
                 case 3:
@@ -137,9 +150,10 @@ struct FirstRunWizardView: View {
     
     private func handleContinue() {
         if currentStep == 4 {
-            // Launch Steam Now was clicked
+            // Launch Steam Now was clicked.
+            // launchSteam() fires onComplete(true) after a short delay —
+            // do not call it here as well or completion runs twice.
             launchSteam()
-            onComplete(true)
         } else {
             currentStep += 1
             if currentStep == 1 {
@@ -151,31 +165,29 @@ struct FirstRunWizardView: View {
     private func performSystemCheck() {
         // Implement system check per SPECS A2.3 step 2
         DispatchQueue.global().async {
-            var passed = true
-            
             // Check 1: arm64 architecture
             var size = 0
             sysctlbyname("hw.machine", nil, &size, nil, 0)
             var machine = [CChar](repeating: 0, count: size)
             sysctlbyname("hw.machine", &machine, &size, nil, 0)
             let arch = String(cString: machine)
-            passed = passed && arch.contains("arm64")
+            let isAppleSilicon = arch.contains("arm64")
             
             // Check 2: macOS >= 15
             let osVersion = ProcessInfo.processInfo.operatingSystemVersion
-            passed = passed && osVersion.majorVersion >= 15
+            let isOSVersionOK = osVersion.majorVersion >= 15
             
             // Check 3: >= 20 GB free
+            var isDiskOK = false
             if let path = NSSearchPathForDirectoriesInDomains(.applicationSupportDirectory, .userDomainMask, true).first {
                 if let attrs = try? FileManager.default.attributesOfFileSystem(forPath: path),
                    let freeSize = attrs[.systemFreeSize] as? Int64 {
                     let freeGB = Double(freeSize) / 1_000_000_000.0
-                    passed = passed && freeGB >= 20.0
+                    isDiskOK = freeGB >= 20.0
                 }
             }
             
-            // Check 4: Network reachable
-            // Simple check: try to resolve DNS
+            // Check 4: Network reachable — try to resolve DNS
             let task = Process()
             task.executableURL = URL(fileURLWithPath: "/usr/bin/host")
             task.arguments = ["steampowered.com"]
@@ -183,10 +195,13 @@ struct FirstRunWizardView: View {
             task.standardError = Pipe()
             try? task.run()
             task.waitUntilExit()
-            passed = passed && task.terminationStatus == 0
+            let isNetworkOK = task.terminationStatus == 0
             
             DispatchQueue.main.async {
-                systemCheckPassed = passed
+                checkAppleSilicon = isAppleSilicon
+                checkOSVersion = isOSVersionOK
+                checkDiskSpace = isDiskOK
+                checkNetwork = isNetworkOK
             }
         }
     }
@@ -370,7 +385,14 @@ struct WelcomeStep: View {
 }
 
 struct SystemCheckStep: View {
-    @Binding var passed: Bool
+    @Binding var checkOSVersion: Bool
+    @Binding var checkAppleSilicon: Bool
+    @Binding var checkDiskSpace: Bool
+    @Binding var checkNetwork: Bool
+    
+    private var allPassed: Bool {
+        checkOSVersion && checkAppleSilicon && checkDiskSpace && checkNetwork
+    }
     
     var body: some View {
         VStack(spacing: 20) {
@@ -379,13 +401,13 @@ struct SystemCheckStep: View {
                 .fontWeight(.bold)
             
             VStack(alignment: .leading, spacing: 12) {
-                CheckItem(label: "macOS 15 or later", passed: $passed)
-                CheckItem(label: "Apple Silicon", passed: $passed)
-                CheckItem(label: "At least 20 GB free", passed: $passed)
-                CheckItem(label: "Network reachable", passed: $passed)
+                CheckItem(label: "macOS 15 or later", passed: $checkOSVersion)
+                CheckItem(label: "Apple Silicon", passed: $checkAppleSilicon)
+                CheckItem(label: "At least 20 GB free", passed: $checkDiskSpace)
+                CheckItem(label: "Network reachable", passed: $checkNetwork)
             }
             
-            if passed {
+            if allPassed {
                 Text("✓ Everything looks good.")
                     .foregroundColor(.green)
                     .fontWeight(.bold)
