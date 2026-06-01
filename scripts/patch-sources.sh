@@ -35,9 +35,14 @@ for p in "$PATCH_DIR"/*.patch; do
     exit 1
   fi
   # Touched files: parse `+++ b/<path>` lines from the patch.
+  # diff -u commonly appends a tab + timestamp to +++ headers; strip
+  # anything from the first tab or space onwards. (Reported by Copilot
+  # review on PR #1.)
   touched=()
   while IFS= read -r line; do
-    touched+=("$SRC/${line#+++ b/}")
+    path="${line#+++ b/}"
+    path="${path%%[$'\t ']*}"
+    touched+=("$SRC/$path")
   done < <(grep '^+++ b/' "$p")
   if (( ${#touched[@]} == 0 )); then
     log "$name: could not detect touched files (no '+++ b/' headers)"

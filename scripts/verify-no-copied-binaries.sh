@@ -23,9 +23,18 @@ log() { echo "[$(ts)] verify-no-copied-binaries: $*" >&2; }
 
 [[ -d "$OUT" ]] || { log "out/engine missing — nothing to verify"; exit 0; }
 
+# Exit codes:
+#   0  — comparison ran, no matches found (PASS)
+#   1  — comparison ran, at least one match found (FAIL)
+#   77 — comparison could not run (no CrossOver corpus) (SKIP, sysexits.h-ish)
+# Callers (test-engine.sh) must distinguish SKIP from PASS so we don't
+# claim AGENTS rule #1 enforcement when nothing was actually checked.
+# (Reported by CodeRabbit review on PR #1.)
 if [[ ! -d "$CX_LIB" ]]; then
-  log "CrossOver not installed at $CX_LIB — rule trivially holds"
-  exit 0
+  log "SKIP: CrossOver not installed at $CX_LIB — no comparison corpus"
+  log "      install CrossOver Trial to enable A1.5; the CI matrix"
+  log "      (Phase 5) runs A1.5 on a runner with CrossOver Trial."
+  exit 77
 fi
 
 log "indexing CrossOver lib tree at $CX_LIB"

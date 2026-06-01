@@ -20,14 +20,10 @@ LOG="$REPO_ROOT/docs/.phase1-make.log"
 
 JOBS="${JOBS:-$(sysctl -n hw.ncpu 2>/dev/null || echo 4)}"
 
-# Brew bison/flex are required (Apple's system bison 2.3 is too old for
-# Wine's parser.y files). Pin PATH here so the script works regardless
-# of caller environment.
-export PATH="/opt/homebrew/opt/bison/bin:/opt/homebrew/opt/flex/bin:/opt/homebrew/bin:$PATH"
-
 # We build x86_64 host (see ADR-0010). On Apple Silicon, force every
 # configure/make invocation to run under Rosetta 2 so `uname -m`,
-# `__x86_64__`, the C/ObjC compilers, and ld all see x86_64.
+# `__x86_64__`, the C/ObjC compilers, and ld all see x86_64. On an
+# Intel Mac the host is already x86_64; RUN_X86 stays empty.
 RUN_X86=()
 if [[ "$(uname -m)" == "arm64" ]]; then
   command -v arch >/dev/null && RUN_X86=(arch -x86_64)
@@ -36,29 +32,40 @@ if [[ "$(uname -m)" == "arm64" ]]; then
   # producing an x86_64 binary that links against them. The native arm64
   # /opt/homebrew prefix is incompatible and is removed from PATH for
   # the duration of the build.
-  X86_BREW="/usr/local/bin/brew"
-  if [[ ! -x "$X86_BREW" ]]; then
-    echo "build-wine: $X86_BREW not found — run scripts/prep-build-deps.sh first" >&2
-    exit 1
-  fi
-  # Order matters: brew keg-only bison/flex first, then x86 brew prefix.
-  export PATH="/usr/local/opt/bison/bin:/usr/local/opt/flex/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin"
-  # pkg-config from x86 brew, looking at x86 brew prefix's .pc files.
-  export PKG_CONFIG="/usr/local/bin/pkg-config"
-  export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:/usr/local/share/pkgconfig"
-  export PKG_CONFIG_LIBDIR="/usr/local/lib/pkgconfig:/usr/local/share/pkgconfig"
-  # Wine's configure probes some headers (freetype's ft2build.h, sdl2,
-  # etc.) by direct compile rather than pkg-config. Point the compiler
-  # and linker at the x86 brew prefix so those probes succeed.
-  export CPPFLAGS="-I/usr/local/include -I/usr/local/opt/freetype/include/freetype2 -I/usr/local/opt/libpng/include/libpng16"
-  export LDFLAGS="-L/usr/local/lib"
+  BREW_PREFIX="/usr/local"
+else
+  # Intel Mac: native x86_64 brew is at /usr/local (the only brew
+  # prefix Intel Macs have).
+  BREW_PREFIX="/usr/local"
 fi
+X86_BREW="$BREW_PREFIX/bin/brew"
+if [[ ! -x "$X86_BREW" ]]; then
+  echo "build-wine: $X86_BREW not found — run scripts/prep-build-deps.sh first" >&2
+  exit 1
+fi
+# Order matters: brew keg-only bison/flex first, then x86 brew prefix.
+# This applies to both Apple Silicon (under Rosetta) and Intel.
+export PATH="$BREW_PREFIX/opt/bison/bin:$BREW_PREFIX/opt/flex/bin:$BREW_PREFIX/bin:$BREW_PREFIX/sbin:/usr/bin:/bin:/usr/sbin:/sbin"
+export PKG_CONFIG="$BREW_PREFIX/bin/pkg-config"
+export PKG_CONFIG_PATH="$BREW_PREFIX/lib/pkgconfig:$BREW_PREFIX/share/pkgconfig"
+export PKG_CONFIG_LIBDIR="$BREW_PREFIX/lib/pkgconfig:$BREW_PREFIX/share/pkgconfig"
+# Wine's configure probes some headers (freetype's ft2build.h, sdl2,
+# etc.) by direct compile rather than pkg-config. Point the compiler
+# and linker at the x86 brew prefix so those probes succeed.
+export CPPFLAGS="-I$BREW_PREFIX/include -I$BREW_PREFIX/opt/freetype/include/freetype2 -I$BREW_PREFIX/opt/libpng/include/libpng16"
+export LDFLAGS="-L$BREW_PREFIX/lib"
 
 ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 log() { echo "[$(ts)] build-wine: $*" | tee -a "$LOG" >&2; }
 
 [[ -d "$SRC" ]] || { log "wine source missing at $SRC — run fetch-sources.sh"; exit 1; }
 mkdir -p "$BUILD" "$INSTALL" "$OUT" "$(dirname "$LOG")"
+
+# Ensure calimocho patches are applied. patch-sources.sh is idempotent
+# (marker-based); skipping when already applied is cheap. Skipping
+# entirely means we'd build against unpatched upstream sources and
+# silently miss e.g. the wineloader bundle ID rename (ADR-0009).
+"$REPO_ROOT/scripts/patch-sources.sh" "$SRC" >>"$LOG" 2>&1
 
 # --- configure (only if not already configured) ---
 if [[ ! -f "$BUILD/Makefile" ]]; then
@@ -100,8 +107,14 @@ log "make install"
 log "staging out/engine from $INSTALL"
 mkdir -p "$OUT/bin" "$OUT/lib" "$OUT/share"
 # rsync preserves symlinks (wine64 -> wine, wineserver64 -> wineserver, etc.)
+# CRITICAL: --exclude=external on the lib/ stage. out/engine/lib/external/
+# is populated by scripts/overlay-gptk.sh with Apple GPTK D3DMetal and
+# is NOT present in $INSTALL/lib/. Without --exclude=external, every
+# re-run of build-wine.sh would silently wipe the bundled D3DMetal
+# framework and the engine would lose GPU acceleration without any
+# error. (Reported by Copilot review on PR #1.)
 rsync -a --delete "$INSTALL/bin/"  "$OUT/bin/"
-rsync -a --delete "$INSTALL/lib/"  "$OUT/lib/"
+rsync -a --delete --exclude=external "$INSTALL/lib/"  "$OUT/lib/"
 rsync -a --delete "$INSTALL/share/" "$OUT/share/"
 
 log "done — engine staged at $OUT"

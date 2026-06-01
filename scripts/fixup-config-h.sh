@@ -45,11 +45,24 @@ patch_define() {
     log "rewrote ${name} -> ${value}"
   else
     # Inject just after the opening guard so we never lose the define.
-    awk -v line="#define ${name} ${value}" '
+    # If the guard name ever changes upstream (it has historically),
+    # awk's `done` flag will stay 0 and we must fail loudly — otherwise
+    # the build silently runs against an unpatched config.h.
+    # (Reported by Copilot review on PR #1.)
+    local injected
+    injected=$(awk -v line="#define ${name} ${value}" '
       NR==1 { print; next }
       !done && /^#define __WINE_CONFIG_H$/ { print; print line; done=1; next }
+      END   { exit (done ? 0 : 1) }
       { print }
-    ' "$CONFIG_H" >"${CONFIG_H}.tmp" && mv "${CONFIG_H}.tmp" "$CONFIG_H"
+    ' "$CONFIG_H" >"${CONFIG_H}.tmp" && echo ok || echo fail)
+    if [[ "$injected" != "ok" ]]; then
+      rm -f "${CONFIG_H}.tmp"
+      log "ERROR: no '#define __WINE_CONFIG_H' guard in $CONFIG_H; cannot inject ${name}"
+      log "       (upstream guard name may have changed; update fixup-config-h.sh)"
+      exit 1
+    fi
+    mv "${CONFIG_H}.tmp" "$CONFIG_H"
     log "injected ${name} -> ${value}"
   fi
 }
