@@ -80,7 +80,7 @@ done
 if [[ -d "$PATCH_DIR/files" ]]; then
   log "syncing standalone source files from $PATCH_DIR/files/ -> $SRC/dlls/"
   while IFS= read -r -d '' f; do
-    rel="${f#$PATCH_DIR/files/}"
+    rel="${f#"$PATCH_DIR"/files/}"
     dst="$SRC/dlls/$rel"
     mkdir -p "$(dirname "$dst")"
     if [[ ! -f "$dst" ]] || ! cmp -s "$f" "$dst"; then
