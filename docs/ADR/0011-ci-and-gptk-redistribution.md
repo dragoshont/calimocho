@@ -93,6 +93,36 @@ binaries. Required by §2A: *"reproduce on each copy of the Apple
 Software or portion thereof, all copyright or other proprietary
 notices contained on the original."*
 
+### 4. Upstream watch CI
+
+`.github/workflows/upstream-watch.yml` runs weekly (Mondays 09:00
+UTC) + on-demand `workflow_dispatch`. Checks three sources:
+
+- **CodeWeavers Wine source** — scrapes
+  `https://www.codeweavers.com/crossover/source`, regex-matches the
+  current tarball filename pattern `crossover-sources-X.Y.Z.tar.gz`,
+  compares against `versions.json:.cx_sources.crossover_release`.
+  CodeWeavers has no public API, no RSS feed, and their tarball
+  directory listing returns 403; this page is the only stable
+  surface they provide. If the regex stops matching, an
+  `upstream-watch-broken` Issue is opened.
+- **Apple GPTK** — queries `Gcenx/game-porting-toolkit` GitHub
+  Releases API for the latest tag, compares against
+  `versions.json:.gptk_redist.gcenx_upstream_tag`. gcenx repacks each
+  Apple GPTK release within days; his tag is the most reliable signal
+  of a new Apple drop. (Calimocho still uses Apple's own DMG as the
+  D3DMetal source; gcenx is the notification signal only.)
+- **Whisky** — queries the `Whisky-App/Whisky` repo `archived` field
+  via API. AGENTS rule #3 says if Whisky resumes active development
+  (`archived: false`), we reposition or archive calimocho. Pinned
+  expected state is `archived: true` in `versions.json:.whisky.expected_archived`.
+
+When a new version is detected the workflow opens a GitHub Issue
+with a recipe ("how to adopt this version"). Idempotent: searches by
+exact Issue title (open OR closed) and skips if it already exists, so
+the maintainer can close an Issue and not have it re-spam every
+Monday.
+
 ## Consequences
 
 ### Positive
@@ -104,7 +134,11 @@ notices contained on the original."*
   Releases, public and permissionless.
 - One-line `versions.json` bump rotates pinned upstream versions
   cleanly. Single source of truth across `fetch-sources.sh`,
-  `package-gptk-redist.sh`, and CI cache keys.
+  `package-gptk-redist.sh`, CI cache keys, and `upstream-watch.yml`.
+- Upstream-watch removes the maintainer's burden of subscribing to
+  RSS feeds, polling Apple's developer page, and remembering to
+  check Whisky's archive status. New CodeWeavers/GPTK drops surface
+  as Issues within ~1 week of release.
 - AGENTS rule #3 (respect upstream) strengthened: the verbatim
   `License.rtf` ships next to every D3DMetal binary, both in the
   redist tarball and in the calimocho working tree
@@ -124,13 +158,18 @@ notices contained on the original."*
   comply within days (AGENTS rule #3 "respect upstream").
 
 ### Neutral
-- Adds three new files: `versions.json`, `scripts/package-gptk-redist.sh`,
-  `.github/workflows/build.yml`. Modifies `scripts/fetch-sources.sh`
-  and `scripts/overlay-gptk.sh` to use `versions.json` as the source
-  of truth.
+- Adds four new files: `versions.json`, `scripts/package-gptk-redist.sh`,
+  `.github/workflows/build.yml`, `.github/workflows/upstream-watch.yml`.
+  Modifies `scripts/fetch-sources.sh` and `scripts/overlay-gptk.sh` to
+  use `versions.json` as the source of truth.
 - `scripts/overlay-gptk.sh` retains the local-DMG path as a fallback
   for the maintainer when iterating on `package-gptk-redist.sh`
   itself — important to avoid a chicken-and-egg loop.
+- Upstream-watch scrapes HTML from codeweavers.com. If CodeWeavers
+  changes their source page template, the regex breaks and we get an
+  `upstream-watch-broken` Issue rather than silently missing releases.
+  Acceptable tradeoff given that CodeWeavers has no machine-readable
+  alternative.
 
 ## Related
 

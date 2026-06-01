@@ -51,6 +51,10 @@ We owe them visible, repeated acknowledgement:
 - ✅ Refuse all commercial deployments (technical: our license forbids it;
   ethical: it would directly undercut CodeWeavers' commercial agreement)
 - ✅ Promptly comply if CodeWeavers ever asks us to change something
+- ✅ Monitor CodeWeavers releases via a weekly CI check
+  (`.github/workflows/upstream-watch.yml` scrapes
+  `codeweavers.com/crossover/source`) so we know about new versions
+  within a week. We do not poll their servers more often than that.
 
 ### Won't
 - ❌ Market calimocho as a "free CrossOver" or "CrossOver alternative"

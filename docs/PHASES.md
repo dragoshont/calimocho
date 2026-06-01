@@ -101,6 +101,11 @@ baselines, multi-OS test matrix.
   populated by `overlay-gptk.sh` (per GPTK SLA §2A "include all
   copyright notices").
 - A1.5.7 First CI run on `phase1-engine` branch passes end-to-end.
+- A1.5.8 `.github/workflows/upstream-watch.yml` runs weekly + on
+  demand. Detects new CodeWeavers Wine source releases (scraping
+  codeweavers.com/crossover/source), new Apple GPTK releases (via
+  Gcenx/game-porting-toolkit), and Whisky un-archive (via repo
+  archived field). Opens a deduped GitHub Issue per finding.
 
 ### Phase 1.5 followups (carried into Phase 2)
 
