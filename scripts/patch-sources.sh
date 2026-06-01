@@ -65,4 +65,29 @@ for p in "$PATCH_DIR"/*.patch; do
     exit 1
   fi
 done
+
+# After patches: copy in any standalone source files we maintain in
+# patches/wine/files/<dll>/. These are NEW files (no upstream
+# counterpart) that would balloon the patch size if inlined. The
+# canonical copy lives in our repo, readable as plain C; the patches
+# only contain edits to EXISTING upstream files.
+#
+# Rationale: a 500-line C file embedded in a unified diff is
+# unreadable. Keeping it as a regular .c file in the repo means
+# `wc -l`, `clangd`, `grep`, and code review all work normally.
+#
+# Idempotent: rsync only copies when source is newer or size differs.
+if [[ -d "$PATCH_DIR/files" ]]; then
+  log "syncing standalone source files from $PATCH_DIR/files/ -> $SRC/dlls/"
+  while IFS= read -r -d '' f; do
+    rel="${f#$PATCH_DIR/files/}"
+    dst="$SRC/dlls/$rel"
+    mkdir -p "$(dirname "$dst")"
+    if [[ ! -f "$dst" ]] || ! cmp -s "$f" "$dst"; then
+      cp "$f" "$dst"
+      log "  installed dlls/$rel"
+    fi
+  done < <(find "$PATCH_DIR/files" -type f -print0)
+fi
+
 log "done"

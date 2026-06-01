@@ -25,3 +25,5 @@ build/
 out/
 dist/
 Libraries.bak-*
+tests/d3d11_shim/test_d3dmetal_shim.exe
+tests/d3d11_shim/*.o

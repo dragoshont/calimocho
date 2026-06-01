@@ -357,3 +357,48 @@ ADR-0015.
 Three tiers planned (Tier 1 unit on D3D11CreateDevice round-trip,
 Tier 2 swap chain Present(), Tier 3 visual NCC on Steam UI).
 Defined in ADR-0015 §Testing strategy.
+
+## 2026-06-01 — ADR-0015 implementation: shim built, Tier 1 PASSES
+
+Following the audit (ADR-0015), implemented the D3DMetal-forwarding
+shim per design:
+
+- `patches/wine/files/d3d11/d3d11_d3dmetal.c` (PE side, 158 lines)
+- `patches/wine/files/d3d11/d3d11_d3dmetal_unix.c` (ELF unixlib, 369 lines)
+- `patches/wine/files/d3d11/d3d11_d3dmetal_private.h` (shared types, 89 lines)
+- `patches/wine/0004-d3d11-d3dmetal-shim.patch` (wine source integration, 65 lines)
+- `tests/d3d11_shim/test_d3dmetal_shim.c` (Tier 1 unit test, 83 lines)
+- Updated `scripts/patch-sources.sh` to sync `patches/wine/files/` into wine tree
+
+**Tier 1 unit test PASSES:** standalone test EXE successfully:
+- Loaded our shim
+- dlopen'd `D3DMetal.framework`
+- Called `D3D11CreateDevice` and got `S_OK` back
+- Received valid `ID3D11Device*` with feature_level 0xb000 (FL 11.0)
+- AddRef/Release vtable methods round-trip correctly
+
+This proves the architectural design works: PE ms_abi shim → wine
+unixlib dispatcher → ELF sysv_abi → ms_abi-typed function pointer →
+D3DMetal.framework → real M1 Max D3D11 device.
+
+**Steam-specific integration is INCOMPLETE.** Standalone test passes
+but Steam still crashes the GPU subprocess 9 times. The
+file-based shim log (`~/Library/Logs/Calimocho/d3d11-shim.log`,
+opt-in via `CALIMOCHO_D3D11_DEBUG=1`) stays empty during Steam
+launches, indicating Steam's CEF subprocess never reaches our
+`D3D11CreateDevice` interceptor. Hypothesis: CEF spawns its GPU
+helper via a path that bypasses the `WINEDLLOVERRIDES` we set, OR
+CEF crashes earlier in its loader before reaching d3d11.dll. Needs
+further investigation:
+
+1. Trace which `d3d11.dll` Steam actually loads (`WINEDEBUG=+module`
+   in a freshly-killed bottle)
+2. Check whether CEF's separate prefetch_2 GPU helper process
+   reaches the shim init
+3. Consider per-app override `AppDefaults\\steamwebhelper.exe`
+4. Run Tier 2 test (HWND + swap chain + Present) to bisect
+   "shim works in isolation" vs "shim fails when given a real
+   Win32 window"
+
+This is now a Steam/CEF integration debugging problem, not a shim
+design problem. The shim itself is sound.
