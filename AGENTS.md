@@ -144,10 +144,17 @@ CrossOver alternative". Frame as "Whisky's missing engine update" or
 "a recipe for the one game I miss on my Mac". That smaller, more
 honest niche is the only one we serve.
 
-**We follow, we don't lead.** We ship nothing CrossOver hasn't shipped
-first. If a Wine patch lands upstream but isn't yet in a CrossOver
-release, we wait. This is part of the intentional release lag (lever
-5) and part of being honestly downstream.
+**We follow when a FOSS path exists. We lead only when the only
+alternative is a paid product, and only as narrowly as needed to
+remove that gating.** We ship nothing on the Wine engine layer
+that CodeWeavers hasn't shipped first when there is an
+already-working FOSS option. If a Wine patch lands upstream but
+isn't yet in a CrossOver release, we wait (intentional release
+lag, lever 5). But when there is **no** FOSS implementation of a
+piece calimocho's users need and the only working answer is a paid
+product, we are allowed to write the smallest possible new code
+that unblocks the FOSS path, subject to the guardrails in
+[ADR-0017](../docs/ADR/0017-follow-when-foss-exists-lead-when-only-paid-exists.md).
 
 ### 5. We are SN2-scoped.
 - Subnautica 2 is the only "Working" entry in the compat table.
