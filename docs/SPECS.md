@@ -78,7 +78,7 @@ documented with the patch script committed in `scripts/fixup-config-h.sh`.
 
 These are developer scripts. They run from the repo root.
 
-```
+```text
 scripts/fetch-sources.sh         # download Wine source + GPTK, verify sha256
 scripts/build-wine.sh            # configure + make Wine 11
 scripts/overlay-gptk.sh          # copy D3DMetal.framework into out/engine
@@ -94,7 +94,7 @@ Each script:
 
 ### Phase 1 file layout (developer side)
 
-```
+```text
 ~/Repo/calimocho/
 ├── build/wine/           # configure + make output, gitignored
 │   ├── _install/         # `make install` destination
@@ -184,7 +184,7 @@ convenience a symlink can be created at `~/bin/calimocho`. The same
 binary is also accessible from the repo's `bin/calimocho` during
 development.
 
-```
+```text
 calimocho help
 calimocho version
 calimocho status              # bottle exists? engine ok? Steam installed?
@@ -213,7 +213,7 @@ calimocho uninstall           # remove bottle data + (optionally) /Applications/
 
 ### Phase 2 file layout
 
-```
+```text
 /Applications/Calimocho.app/
 └── Contents/
     ├── Info.plist
@@ -272,7 +272,7 @@ without a Wine-side crash. Game-side Early Access crashes
 
 ### Phase 3 CLI surface additions
 
-```
+```text
 calimocho bottle list                       # show bottles (always: STEAM)
 calimocho bottle config STEAM               # print bottle config (Win ver, sync, DLL overrides)
 calimocho game install sn2                  # install SN2 game files + mods + bottle config
@@ -284,7 +284,7 @@ calimocho game uninstall sn2                # remove SN2 game files but leave St
 ### Phase 3 file layout
 
 In the bottle:
-```
+```text
 ~/Library/Application Support/Calimocho/Bottles/STEAM/drive_c/Program Files (x86)/Steam/
 └── steamapps/
     ├── appmanifest_2864380.acf
@@ -305,7 +305,7 @@ In the bottle:
 ```
 
 In the repo:
-```
+```text
 bottles/sn2/config.json
 bottles/sn2/dll-overrides.reg          # xinput1_3 native,builtin
 bottles/sn2/launch-args.json
@@ -348,7 +348,7 @@ differ, README is wrong, not the app.
 A4.8 **The DMG is self-contained**. `Calimocho.app` ships with the
 full engine and Apple GPTK Redistributables pre-bundled:
 
-```
+```text
 Calimocho.app/Contents/Resources/Engine/
 ├── bin/wine
 ├── lib/wine/{i386-windows,x86_64-windows,x86_64-unix}/
@@ -545,7 +545,7 @@ row moves back to "Wishlist" with a "regression at vX.Y.Z" note.
 
 Both CLI (stderr) and GUI (dialogs) follow:
 
-```
+```text
 calimocho: ERROR <short title>
   Reason: <what happened, plain English, non-native-English-friendly>
   Fix:    <what to try>

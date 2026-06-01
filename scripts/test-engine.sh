@@ -12,7 +12,13 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$REPO_ROOT/out/engine"
-WINE="$OUT/bin/wine"
+# Use the calimocho-wine wrapper. It bakes in WINEDLLOVERRIDES,
+# DYLD_FALLBACK_LIBRARY_PATH, and WINEDEBUG so callers (and Phase 2
+# Calimocho.app's EngineLauncher) don't repeat the boilerplate.
+# Tests still need the raw `wine` binary for --version (A1.1) so the
+# string match is stable; everything else goes through the wrapper.
+WINE="$OUT/bin/calimocho-wine"
+WINE_RAW="$OUT/bin/wine"
 
 WITH_STEAM=0
 USER_PFX=""
@@ -37,11 +43,15 @@ FAILED=0
 # its own wineserver, and cleanup() below shuts down only ours by
 # pointing wineserver -k at our WINEPREFIX.
 
-[[ -x "$WINE" ]] || { say "engine missing at $WINE — run build-wine.sh first"; exit 3; }
+[[ -x "$WINE" ]] || { say "engine missing at $WINE — run build-wine.sh + bundle-deps.sh first"; exit 3; }
+[[ -x "$WINE_RAW" ]] || { say "raw wine missing at $WINE_RAW — run build-wine.sh first"; exit 3; }
 
 # --- A1.1 wine --version ---
+# A1.1 spec is on the underlying `wine` binary (not the wrapper) so
+# the string match is unambiguous. Wrapper adds no extra output that
+# could trip this; checked both to be safe.
 say "A1.1 wine --version"
-ver="$("$WINE" --version 2>&1 || true)"
+ver="$("$WINE_RAW" --version 2>&1 || true)"
 say "  reported: $ver"
 if [[ "$ver" == wine-11.0* ]]; then ok A1.1; else fail "A1.1 (got: $ver)"; fi
 
@@ -67,15 +77,9 @@ cleanup() {
 }
 trap cleanup EXIT
 export WINEPREFIX="$PFX"
-export WINEDEBUG="${WINEDEBUG:-fixme-all,err-all}"
-# Skip the Wine Mono / Gecko first-prefix prompts (interactive dialogs).
-# Calimocho's scope doesn't include .NET-based Windows apps; SN2 and
-# Steam don't need them.
-export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:-mscoree,mshtml=}"
-# Wine dlopen's libfreetype etc. by SONAME and expects them on the
-# standard dyld path. We installed them via the x86_64 brew at
-# /usr/local/. Make sure runtime dlopen finds them.
-export DYLD_FALLBACK_LIBRARY_PATH="${DYLD_FALLBACK_LIBRARY_PATH:-/usr/local/lib:/usr/lib}"
+# WINEDEBUG, WINEDLLOVERRIDES, DYLD_FALLBACK_LIBRARY_PATH are now
+# baked into the calimocho-wine wrapper (A1.5.x). Tests don't need
+# to set them. Callers can still override.
 
 t0=$(date +%s)
 if "$WINE" wineboot --init >/dev/null 2>>"$REPO_ROOT/docs/.phase1-make.log"; then

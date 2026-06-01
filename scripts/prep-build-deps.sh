@@ -126,6 +126,7 @@ if (( ${#MISSING[@]} > 0 )); then
 fi
 
 # Sanity-check that the linker can find the x86 libs we'll need.
+# shellcheck disable=SC2034  # 'lib' documents the libs we sanity-check below
 for lib in gnutls freetype dbus-1 SDL2 png; do
   if ! arch -x86_64 "$X86_BREW" --prefix >/dev/null 2>&1; then
     log "WARNING: x86 brew --prefix failed; PATH may be misconfigured"

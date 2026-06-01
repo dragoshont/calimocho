@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# bin/calimocho-wine — self-contained Wine launcher
+#
+# Sets every environment variable the Wine engine needs to run
+# without depending on the user having Homebrew installed at
+# /usr/local. Then execs the real wine binary with the user's args.
+#
+# Phase 2's Calimocho.app/Contents/Resources/Engine/ ships an
+# identical copy of this script. The SwiftUI EngineLauncher just
+# `Process.run(this-script, args)` without setting envs itself.
+#
+# AGENTS rule alignment:
+#   - Bakes in WINEDLLOVERRIDES="mscoree,mshtml=" so the Wine Mono /
+#     Gecko first-run dialog never appears (.NET / IE not in scope)
+#   - Bakes in DYLD_FALLBACK_LIBRARY_PATH pointing at
+#     lib/external/runtime/ (where scripts/bundle-deps.sh copies the
+#     dylibs Wine dlopens at runtime)
+#   - Inherits user-supplied WINEPREFIX (or any wine env var) if set
+#
+# Don't move this file. The resolver walks up one directory level
+# (../) to find the engine root.
+
+set -euo pipefail
+
+# Resolve our own location, following symlinks.
+self="$0"
+while [[ -L "$self" ]]; do
+  link="$(readlink "$self")"
+  case "$link" in
+    /*) self="$link" ;;
+    *)  self="$(cd "$(dirname "$self")" && pwd)/$link" ;;
+  esac
+done
+HERE="$(cd "$(dirname "$self")" && pwd)"
+ENGINE="$(cd "$HERE/.." && pwd)"
+
+WINE_BIN="$ENGINE/bin/wine"
+RUNTIME_DEPS="$ENGINE/lib/external/runtime"
+GPTK_EXTERNAL="$ENGINE/lib/external"
+
+[[ -x "$WINE_BIN" ]] || { echo "calimocho-wine: ERROR engine missing at $WINE_BIN" >&2; exit 3; }
+
+# Skip Wine Mono / Gecko first-prefix prompts. Calimocho's scope
+# doesn't include .NET-based Windows apps; SN2 and Steam don't need
+# them. Users who DO want .NET can override:
+#   WINEDLLOVERRIDES= calimocho-wine ...
+export WINEDLLOVERRIDES="${WINEDLLOVERRIDES-mscoree,mshtml=}"
+
+# Make Wine's runtime dlopen find the bundled libfreetype/libgnutls/
+# libdbus/libSDL2/etc. Also include GPTK's own framework dir for
+# libd3dshared. Append /usr/lib (system libs like libcups).
+# We use DYLD_FALLBACK_LIBRARY_PATH (not DYLD_LIBRARY_PATH) so the
+# normal dyld search order applies first — important: if the user
+# has a system libfreetype, it wins, and our bundled copy is the
+# fallback only for missing-from-system cases. Conservative.
+existing="${DYLD_FALLBACK_LIBRARY_PATH-}"
+new_path="$RUNTIME_DEPS:$GPTK_EXTERNAL"
+if [[ -n "$existing" ]]; then
+  export DYLD_FALLBACK_LIBRARY_PATH="$existing:$new_path:/usr/lib"
+else
+  export DYLD_FALLBACK_LIBRARY_PATH="$new_path:/usr/lib"
+fi
+
+# Quiet Wine debug output by default. Users override with WINEDEBUG=...
+export WINEDEBUG="${WINEDEBUG-err-all,fixme-all}"
+
+exec "$WINE_BIN" "$@"

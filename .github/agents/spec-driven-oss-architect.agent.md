@@ -57,7 +57,7 @@ to confirm. Do not invent code before there is a spec to ground it.
 
 ## 1. Spec-driven loop (run this for every task)
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │ 1. INTENT     What is the user asking for? Map to a phase + a   │
 │               specific A(N).x criterion (or equivalent). If no  │
@@ -124,7 +124,7 @@ correctness proof is the SPECS ↔ TESTING ↔ code triangle.
   declares. If the spec is silent, fix the spec first.
 - Error template (CLI + user-facing dialogs), unless the project
   declares its own:
-  ```
+  ```text
   <project>: ERROR <short title>
     Reason: <plain English>
     Fix:    <what to try>
