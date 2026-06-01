@@ -41,7 +41,13 @@ log "indexing CrossOver lib tree at $CX_LIB"
 CX_SUMS="$(mktemp -t cx-sums.XXXXXX)"
 trap 'rm -f "$CX_SUMS"' EXIT
 find "$CX_LIB" -type f -print0 | xargs -0 -P 4 -n 64 shasum -a 256 | awk '{print $1}' | sort -u >"$CX_SUMS"
-log "indexed $(wc -l <"$CX_SUMS" | tr -d ' ') unique CrossOver files"
+idx_count=$(wc -l <"$CX_SUMS" | tr -d ' ')
+log "indexed $idx_count unique CrossOver files"
+# Defensive: shasum prints stderr warnings on unreadable files but the
+# pipeline still exits 0. A genuinely empty $CX_SUMS would make every
+# subsequent grep -Fxq fail to match and we'd report "no violations"
+# (false PASS). Fail loud instead. (CodeRabbit on PR #1.)
+(( idx_count > 0 )) || { log "ERROR: CrossOver index is empty; indexing may have failed"; exit 1; }
 
 log "scanning $OUT"
 violations=0

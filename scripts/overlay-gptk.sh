@@ -38,8 +38,12 @@ if [[ -f "$REDIST_TARBALL" ]]; then
   trap 'rm -rf "$STAGE"' EXIT
   zstd -d -c "$REDIST_TARBALL" | tar -xf - -C "$STAGE"
   [[ -d "$STAGE/redist/D3DMetal.framework" ]] || { log "ERROR: tarball missing D3DMetal.framework"; exit 1; }
-  rsync -a --delete "$STAGE/redist/D3DMetal.framework/" "$DST/D3DMetal.framework/"
-  rsync -a          "$STAGE/redist/libd3dshared.dylib"  "$DST/libd3dshared.dylib"
+  [[ -f "$STAGE/redist/libd3dshared.dylib"  ]] || { log "ERROR: tarball missing libd3dshared.dylib"; exit 1; }
+  [[ -f "$STAGE/redist/License.rtf"         ]] || log "WARNING: tarball missing License.rtf (§2A copyright clause needs it)"
+  rsync -a --delete "$STAGE/redist/D3DMetal.framework/" "$DST/D3DMetal.framework/" \
+    || { log "ERROR: failed to copy D3DMetal.framework -> $DST/"; exit 1; }
+  rsync -a          "$STAGE/redist/libd3dshared.dylib"  "$DST/libd3dshared.dylib" \
+    || { log "ERROR: failed to copy libd3dshared.dylib -> $DST/"; exit 1; }
   if [[ -f "$STAGE/redist/License.rtf" ]]; then
     mkdir -p "$REPO_ROOT/THIRDPARTY/Apple-GPTK"
     cp "$STAGE/redist/License.rtf" "$REPO_ROOT/THIRDPARTY/Apple-GPTK/License.rtf"
@@ -51,8 +55,12 @@ fi
 
 if [[ -d "$DMG_REDIST" ]]; then
   log "using mounted GPTK DMG: $DMG_REDIST"
-  rsync -a --delete "$DMG_REDIST/D3DMetal.framework/" "$DST/D3DMetal.framework/"
-  rsync -a          "$DMG_REDIST/libd3dshared.dylib"  "$DST/libd3dshared.dylib"
+  [[ -d "$DMG_REDIST/D3DMetal.framework" ]] || { log "ERROR: DMG missing D3DMetal.framework at $DMG_REDIST/"; exit 1; }
+  [[ -f "$DMG_REDIST/libd3dshared.dylib"  ]] || { log "ERROR: DMG missing libd3dshared.dylib at $DMG_REDIST/"; exit 1; }
+  rsync -a --delete "$DMG_REDIST/D3DMetal.framework/" "$DST/D3DMetal.framework/" \
+    || { log "ERROR: failed to copy D3DMetal.framework -> $DST/"; exit 1; }
+  rsync -a          "$DMG_REDIST/libd3dshared.dylib"  "$DST/libd3dshared.dylib" \
+    || { log "ERROR: failed to copy libd3dshared.dylib -> $DST/"; exit 1; }
   if [[ -f "$EVAL_VOL/License.rtf" ]]; then
     mkdir -p "$REPO_ROOT/THIRDPARTY/Apple-GPTK"
     cp "$EVAL_VOL/License.rtf" "$REPO_ROOT/THIRDPARTY/Apple-GPTK/License.rtf"

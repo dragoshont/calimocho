@@ -95,6 +95,10 @@ EOF
 log "packing $OUT_NAME"
 mkdir -p "$OUT_DIR"
 (cd "$STAGE" && tar --no-mac-metadata -cf - redist | zstd -19 -T0 -o "$OUT_PATH")
+# Defensive: set -o pipefail already catches pipe failures, but a
+# disk-full zstd can produce a zero-byte file before failing. Belt and
+# suspenders. (CodeRabbit on PR #1.)
+[[ -s "$OUT_PATH" ]] || { rm -f "$OUT_PATH"; log "ERROR: $OUT_PATH is missing or empty after tar+zstd"; exit 1; }
 
 SHA="$(shasum -a 256 "$OUT_PATH" | awk '{print $1}')"
 SIZE="$(stat -f %z "$OUT_PATH")"
