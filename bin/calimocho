@@ -34,7 +34,7 @@ detect_engine() {
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     REPO_ENGINE="$SCRIPT_DIR/../out/engine"
     if [[ -d "$REPO_ENGINE" ]]; then
-        echo "$(cd "$REPO_ENGINE" && pwd)"
+        (cd "$REPO_ENGINE" && pwd)
         return
     fi
     
@@ -142,7 +142,10 @@ cmd_launch_steam() {
     echo "Launching Steam..."
     
     export WINEPREFIX="$STEAM_BOTTLE"
-    export WINEDLLOVERRIDES="mscoree,mshtml="
+    # Do NOT set WINEDLLOVERRIDES here — calimocho-wine bakes in the full
+    # override including the d3d11,dxgi=n DXVK redirect needed by CEF.
+    # Setting it here would suppress that override (${VAR-default} only
+    # applies when the var is unset).
     export WINEDEBUG="${WINEDEBUG:-err-all,fixme-all}"
     
     # Launch in background
@@ -195,7 +198,7 @@ cmd_diagnose() {
         echo ""
         
         echo "=== Calimocho Status ==="
-        cmd_status 2>&1 || true
+        ( cmd_status 2>&1 ) || true
         echo ""
         
         echo "=== Engine Contents ==="

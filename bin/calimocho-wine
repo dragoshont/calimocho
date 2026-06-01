@@ -66,8 +66,11 @@ export WINEDLLOVERRIDES="${WINEDLLOVERRIDES-mscoree,mshtml=;d3d11,dxgi=n}"
 # normal dyld search order applies first — important: if the user
 # has a system libfreetype, it wins, and our bundled copy is the
 # fallback only for missing-from-system cases. Conservative.
+# Note: GPTK_EXTERNAL ($ENGINE/lib/external) is listed before
+# RUNTIME_DEPS ($ENGINE/lib/external/runtime) so the top-level dir
+# is searchable for libd3dshared and the Vulkan ICD loader.
 existing="${DYLD_FALLBACK_LIBRARY_PATH-}"
-new_path="$RUNTIME_DEPS:$GPTK_EXTERNAL"
+new_path="$GPTK_EXTERNAL:$RUNTIME_DEPS"
 if [[ -n "$existing" ]]; then
   export DYLD_FALLBACK_LIBRARY_PATH="$existing:$new_path:/usr/lib"
 else
@@ -82,7 +85,6 @@ export WINEDEBUG="${WINEDEBUG-err-all,fixme-all}"
 # STATUS_BREAKPOINT and the Steam window renders solid black.
 # Point the Vulkan loader at our bundled MoltenVK ICD manifest.
 export VK_ICD_FILENAMES="${VK_ICD_FILENAMES-$ENGINE/share/vulkan/icd.d/MoltenVK_icd.json}"
-export DYLD_FALLBACK_LIBRARY_PATH="$ENGINE/lib/external:$DYLD_FALLBACK_LIBRARY_PATH"
 
 # Apple GPTK environment hints (per GPTK Read Me)
 export D3DM_ENABLE_METALFX="${D3DM_ENABLE_METALFX-1}"

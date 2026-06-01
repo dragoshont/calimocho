@@ -24,6 +24,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem?
     var bottleManager: BottleManager?
     var steamLauncher: SteamLauncher?
+    var wizardWindow: FirstRunWizardWindow?
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Hide dock icon (menubar-only app)
@@ -131,8 +132,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func showFirstRunWizard() {
-        let wizard = FirstRunWizardWindow()
-        wizard.showWindow(onComplete: { [weak self] success in
+        wizardWindow = FirstRunWizardWindow()
+        wizardWindow?.showWindow(onComplete: { [weak self] success in
+            self?.wizardWindow = nil
             if success {
                 self?.updateMenu()
             }
