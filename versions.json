@@ -1,0 +1,17 @@
+{
+  "_doc": "Single source of truth for upstream URLs + sha256 pins. Read by scripts/fetch-sources.sh.",
+  "cx_sources": {
+    "url": "https://media.codeweavers.com/pub/crossover/source/crossover-sources-26.1.0.tar.gz",
+    "sha256": "e4ec87d5821a009dd1f1d2e36ffe2e24b8fcbae9516375ea42f95a16928ab8fa",
+    "wine_version": "11.0",
+    "license": "LGPL-2.1+"
+  },
+  "gptk_redist": {
+    "_doc": "Apple GPTK Redistributables (D3DMetal.framework + libd3dshared.dylib + License.rtf). Re-distributed by calimocho per Apple GPTK SLA §2A(iii) + §2C — see ADR-0011 and docs/ADR/0005-bundle-gptk-d3dmetal.md.",
+    "url": "https://github.com/dragoshont/calimocho/releases/download/gptk-redist-3.0-1/gptk-redist-3.0-1.tar.zst",
+    "sha256": "e1d4ab4952c93eb99c2f92aaa055e1e852e1434ef2ffc3eece6ec24a6cac77eb",
+    "gptk_version": "3.0",
+    "calimocho_repack": 1,
+    "license": "Apple GPTK SLA (non-commercial)"
+  }
+}
